@@ -1,4 +1,4 @@
-const crypto = require("crypto");
+import crypto from "crypto";
 
 const SECRET_KEY = process.env.SECRET_KEY;
 
@@ -7,13 +7,13 @@ if (!SECRET_KEY) {
 }
 
 // Securely derive a 32-byte encryption key from the secret
-function deriveKey(secret) {
+function deriveKey(secret: string): Buffer {
   return crypto.pbkdf2Sync(secret, "analysis_salt", 100000, 32, "sha256");
 }
 
 // Encrypt a value using AES-256-CBC with a random IV
-function encrypt(text) {
-  const key = deriveKey(SECRET_KEY);
+function encrypt(text: string): string {
+  const key = deriveKey(SECRET_KEY!);
   const iv = crypto.randomBytes(16); // Generate a random IV
   const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
   let encrypted = cipher.update(text, "utf8", "hex");
@@ -22,8 +22,8 @@ function encrypt(text) {
 }
 
 // Decrypt a value using AES-256-CBC
-function decrypt(encryptedText) {
-  const key = deriveKey(SECRET_KEY);
+function decrypt(encryptedText: string): string {
+  const key = deriveKey(SECRET_KEY!);
   const [ivHex, encrypted] = encryptedText.split(":"); // Extract IV
   const iv = Buffer.from(ivHex, "hex");
   const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
@@ -32,4 +32,4 @@ function decrypt(encryptedText) {
   return decrypted;
 }
 
-module.exports = { encrypt, decrypt };
+export { encrypt, decrypt };

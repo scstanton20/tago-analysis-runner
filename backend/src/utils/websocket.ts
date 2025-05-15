@@ -1,17 +1,20 @@
-// backend/src/utils/websocket.js
-const WebSocket = require("ws");
+// backend/src/utils/websocket.ts
+import { WebSocketServer, WebSocket } from "ws";
+import { Server } from "http";
+import { analysisService } from "services/analysisService.js";
+import { WebSocketMessage, WebSocketMessageType } from "types/index.js";
 
-let wss = null;
-const clients = new Set();
+let wss: WebSocketServer | null = null;
+const clients: Set<WebSocket> = new Set();
 
-function setupWebSocket(server) {
+function setupWebSocket(server: Server): WebSocketServer {
   // Ensure we don't create multiple WebSocket servers
   if (wss !== null) {
     console.warn("WebSocket server already exists");
     return wss;
   }
 
-  wss = new WebSocket.Server({
+  wss = new WebSocketServer({
     server,
     path: "/ws",
     clientTracking: true,
@@ -19,12 +22,11 @@ function setupWebSocket(server) {
 
   console.log("Setting up WebSocket server");
 
-  wss.on("connection", async (ws) => {
+  wss.on("connection", async (ws: WebSocket) => {
     console.log("New WebSocket connection established");
     clients.add(ws);
 
     try {
-      const { analysisService } = require("../services/analysisService");
       const analyses = await analysisService.getRunningAnalyses();
 
       if (ws.readyState === WebSocket.OPEN) {
@@ -53,16 +55,17 @@ function setupWebSocket(server) {
   return wss;
 }
 
-function broadcastUpdate(type, data) {
+function broadcastUpdate<T = any>(type: WebSocketMessageType, data: T): void {
   // Add check to prevent unnecessary broadcasts
   if (!wss || clients.size === 0) return;
 
-  const message = JSON.stringify({ type, data });
+  const message: WebSocketMessage<T> = { type, data };
+  const messageStr = JSON.stringify(message);
 
   clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
       try {
-        client.send(message);
+        client.send(messageStr);
       } catch (error) {
         console.error("Error broadcasting to client:", error);
         clients.delete(client);
@@ -71,7 +74,7 @@ function broadcastUpdate(type, data) {
   });
 }
 
-module.exports = {
+export {
   setupWebSocket,
   broadcastUpdate,
 };

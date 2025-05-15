@@ -1,6 +1,25 @@
-// connectionMonitor.js
-class ConnectionMonitor {
-  constructor(fileName, type, analysisService) {
+// connectionMonitor.ts
+import { ConnectionState, IConnectionMonitor } from "types/index.js";
+
+interface MonitorService {
+  addLog: (fileName: string, message: string) => Promise<void>;
+  stopAnalysis: (fileName: string) => Promise<any>;
+  runAnalysis: (fileName: string, type: string) => Promise<any>;
+  updateConnectionState: (fileName: string, state: ConnectionState) => Promise<void>;
+  getProcessStatus: (fileName: string) => string;
+  getConfig: () => Record<string, any>;
+}
+
+export default class ConnectionMonitor implements IConnectionMonitor {
+  fileName: string;
+  type: string;
+  analysisService: MonitorService;
+  checkInterval: number;
+  monitorInterval: NodeJS.Timeout | null;
+  reconnectTimeout: NodeJS.Timeout | null;
+  connectionState: ConnectionState;
+
+  constructor(fileName: string, type: string, analysisService: MonitorService) {
     this.fileName = fileName;
     this.type = type;
     this.analysisService = analysisService;
@@ -18,7 +37,7 @@ class ConnectionMonitor {
     };
   }
 
-  async handleConnectionChange(isConnected) {
+  async handleConnectionChange(isConnected: boolean): Promise<void> {
     const currentTime = new Date().toISOString();
     const wasConnected = !this.connectionState.disconnectedAt;
 
@@ -32,7 +51,10 @@ class ConnectionMonitor {
         this.connectionState.history.lastRestored = currentTime;
         this.connectionState.disconnectedAt = null;
 
-        clearTimeout(this.reconnectTimeout);
+        if (this.reconnectTimeout) {
+          clearTimeout(this.reconnectTimeout);
+        }
+        
         this.reconnectTimeout = setTimeout(async () => {
           try {
             // Check if process should restart - for debugging
@@ -66,7 +88,7 @@ class ConnectionMonitor {
                 this.connectionState,
               );
             }
-          } catch (error) {
+          } catch (error: any) {
             console.error(`Error managing process state: ${error.message}`);
             await this.analysisService.addLog(
               this.fileName,
@@ -105,7 +127,7 @@ class ConnectionMonitor {
             this.fileName,
             this.connectionState,
           );
-        } catch (error) {
+        } catch (error: any) {
           console.error(`Error handling disconnection: ${error.message}`);
           await this.analysisService.addLog(
             this.fileName,
@@ -116,7 +138,7 @@ class ConnectionMonitor {
     }
   }
 
-  async checkConnection() {
+  async checkConnection(): Promise<boolean> {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -138,7 +160,7 @@ class ConnectionMonitor {
     }
   }
 
-  startMonitoring() {
+  startMonitoring(): void {
     if (this.monitorInterval) {
       clearInterval(this.monitorInterval);
     }
@@ -159,7 +181,7 @@ class ConnectionMonitor {
     }, this.checkInterval);
   }
 
-  stopMonitoring() {
+  stopMonitoring(): void {
     if (this.monitorInterval) {
       clearInterval(this.monitorInterval);
       this.monitorInterval = null;
@@ -170,5 +192,3 @@ class ConnectionMonitor {
     }
   }
 }
-
-module.exports = ConnectionMonitor;

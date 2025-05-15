@@ -2,11 +2,12 @@
   "name": "backend",
   "private": true,
   "version": "1.0.0",
+  "type": "module",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon --config nodemon.json src/server.js",
-    "lint": "eslint .",
-    "test": "jest"
+    "build": "tsc",
+    "start": "tsx dist/server.js",
+    "dev": "tsx --env-file=.env --watch src/server.js",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@tago-io/sdk": "^11.3.9",
@@ -17,6 +18,15 @@
     "helmet": "^8.1.0",
     "http": "^0.0.1-security",
     "path": "^0.12.7",
+    "tsx": "^4.19.3",
     "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.1",
+    "@types/express-fileupload": "^1.5.1",
+    "@types/node": "^22.14.0",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.8.3"
   }
 }

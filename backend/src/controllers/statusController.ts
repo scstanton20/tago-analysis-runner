@@ -1,20 +1,28 @@
-// controllers/statusController.js
-class StatusController {
-  constructor(analysisService) {
+// controllers/statusController.ts
+import { createRequire } from 'module';
+import { Request, Response } from 'express';
+import { SystemStatusResponse, IAnalysisService, StatusController as IStatusController } from 'types/index.js';
+
+const requireTago = createRequire(import.meta.url);
+
+export default class StatusController implements IStatusController {
+  analysisService: IAnalysisService;
+
+  constructor(analysisService: IAnalysisService) {
     this.analysisService = analysisService;
     this.getSystemStatus = this.getSystemStatus.bind(this);
   }
 
-  async getSystemStatus(_req, res) {
+  async getSystemStatus(_req: Request, res: Response): Promise<void> {
     try {
       const runningAnalyses = Array.from(
         this.analysisService.analyses.values(),
       ).filter((analysis) => analysis.status === "running");
 
-      // Get Tago SDK version from package.json
-      const tagoVersion = require("@tago-io/sdk/package.json").version;
+      // Get Tago SDK version from package.json using the created require function
+      const tagoVersion = requireTago("@tago-io/sdk/package.json").version;
 
-      const status = {
+      const status: SystemStatusResponse = {
         health: {
           status: "healthy",
         },
@@ -43,7 +51,7 @@ class StatusController {
       }
 
       res.json(status);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Status check error:", error);
       res.status(500).json({
         health: { status: "unhealthy" },
@@ -57,5 +65,3 @@ class StatusController {
     }
   }
 }
-
-module.exports = StatusController;

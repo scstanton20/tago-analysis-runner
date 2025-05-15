@@ -1,12 +1,27 @@
-// models/AnalysisProcess.js
-const path = require("path");
-const fs = require("fs").promises;
-const { fork } = require("child_process");
-const { broadcastUpdate } = require("../utils/websocket");
-const config = require("../config/default");
+// models/AnalysisProcess.ts
+import path from "path";
+import fs from "fs/promises";
+import { fork, ChildProcess } from "child_process";
+import { broadcastUpdate } from "utils/websocket.js";
+import config from "config/default.js";
+import { AnalysisLog, AnalysisStatus, ConnectionState, IAnalysisProcess, IAnalysisService } from "types/index.js";
 
-class AnalysisProcess {
-  constructor(analysisName, type, service) {
+export default class AnalysisProcess implements IAnalysisProcess {
+  private _analysisName: string;
+  type: string;
+  service?: IAnalysisService;
+  process: ChildProcess | null;
+  logs: AnalysisLog[];
+  enabled: boolean;
+  status: AnalysisStatus;
+  lastRun: string | null;
+  startTime: string | null;
+  stdoutBuffer: string;
+  stderrBuffer: string;
+  logFile: string;
+  connectionState?: ConnectionState;
+
+  constructor(analysisName: string, type: string, service?: IAnalysisService) {
     this._analysisName = analysisName;
     this.type = type;
     this.service = service;
@@ -27,11 +42,11 @@ class AnalysisProcess {
   }
 
   // Add getter and setter for analysisName
-  get analysisName() {
+  get analysisName(): string {
     return this._analysisName;
   }
 
-  set analysisName(newName) {
+  set analysisName(newName: string) {
     const oldName = this._analysisName;
     this._analysisName = newName;
 
@@ -48,22 +63,22 @@ class AnalysisProcess {
     );
   }
 
-  setupProcessHandlers() {
+  setupProcessHandlers(): void {
     this.stdoutBuffer = "";
     this.stderrBuffer = "";
 
-    if (this.process.stdout) {
+    if (this.process?.stdout) {
       this.process.stdout.on("data", this.handleOutput.bind(this, false));
     }
 
-    if (this.process.stderr) {
+    if (this.process?.stderr) {
       this.process.stderr.on("data", this.handleOutput.bind(this, true));
     }
 
-    this.process.once("exit", this.handleExit.bind(this));
+    this.process?.once("exit", this.handleExit.bind(this));
   }
 
-  handleOutput(isError, data) {
+  handleOutput(isError: boolean, data: Buffer): void {
     const buffer = isError ? this.stderrBuffer : this.stdoutBuffer;
     const lines = data.toString().split("\n");
 
@@ -87,7 +102,8 @@ class AnalysisProcess {
       }
     });
   }
-  async start() {
+  
+  async start(): Promise<void> {
     if (this.process) return;
 
     try {
@@ -120,13 +136,13 @@ class AnalysisProcess {
       this.setupProcessHandlers();
       this.updateStatus("running", true);
       await this.saveConfig();
-    } catch (error) {
+    } catch (error: any) {
       await this.addLog(`ERROR: ${error.message}`);
       throw error;
     }
   }
 
-  async addLog(message) {
+  async addLog(message: string): Promise<void> {
     const timestamp = new Date().toLocaleString();
     const logEntry = `[${timestamp}] ${message}\n`;
 
@@ -152,7 +168,7 @@ class AnalysisProcess {
     });
   }
 
-  updateStatus(status, enabled = false) {
+  updateStatus(status: AnalysisStatus, enabled = false): void {
     this.status = status;
     this.enabled = enabled;
 
@@ -170,25 +186,25 @@ class AnalysisProcess {
     });
   }
 
-  async stop() {
+  async stop(): Promise<void> {
     if (!this.process || this.status !== "running") {
       return;
     }
 
     await this.addLog("Stopping analysis...");
 
-    return new Promise((resolve) => {
-      this.process.kill("SIGTERM");
+    return new Promise<void>((resolve) => {
+      this.process?.kill("SIGTERM");
 
       const forceKillTimeout = setTimeout(() => {
         if (this.process) {
           this.addLog("Force stopping process...").then(() => {
-            this.process.kill("SIGKILL");
+            this.process?.kill("SIGKILL");
           });
         }
       }, config.analysis.forceKillTimeout);
 
-      this.process.once("exit", () => {
+      this.process?.once("exit", () => {
         clearTimeout(forceKillTimeout);
         this.updateStatus("stopped", false);
         this.addLog("Analysis stopped").then(() => {
@@ -199,7 +215,7 @@ class AnalysisProcess {
     });
   }
 
-  async saveConfig() {
+  async saveConfig(): Promise<void> {
     if (!this.service) {
       console.error(
         `Error: Service is undefined for analysis ${this.analysisName}`,
@@ -209,7 +225,7 @@ class AnalysisProcess {
     return this.service.saveConfig();
   }
 
-  async handleExit(code) {
+  async handleExit(code: number): Promise<void> {
     if (this.stdoutBuffer.trim()) {
       await this.addLog(this.stdoutBuffer.trim());
     }
@@ -229,5 +245,3 @@ class AnalysisProcess {
     }
   }
 }
-
-module.exports = AnalysisProcess;
