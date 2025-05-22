@@ -2,21 +2,28 @@
   "name": "@scstanton20/tago-runner-monorepo",
   "private": true,
   "version": "1.0.0",
-  "workspaces": [
-    "frontend",
-    "backend"
-  ],
-  "scripts": {
-    "dev": "npm run dev:frontend & npm run dev:backend",
-    "dev:frontend": "cd frontend && npm run dev",
-    "dev:backend": "cd backend && npm run dev",
-    "prettify": "npx prettier . --write"
+  "engines": {
+    "node": ">=22.0.0"
   },
-  "dependencies": {
-    "npm": "^10.9.2"
+  "scripts": {
+    "dev": "pnpm run dev:frontend & pnpm run dev:backend",
+    "dev:frontend": "pnpm --filter \"frontend\" run dev",
+    "dev:backend": "pnpm --filter \"backend\" run dev",
+    "prettify": "npx prettier . --write",
+    "lint": "npx eslint .",
+    "lint:fix": "npx eslint . --fix"
   },
   "devDependencies": {
-    "prettier": "3.5.3",
-    "typescript": "^5.8.3"
-  }
+    "@eslint/js": "^9.27.0",
+    "eslint": "^9.27.0",
+    "eslint-plugin-n": "^17.18.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "eslint-plugin-security": "^3.0.1",
+    "eslint-plugin-yml": "^1.18.0",
+    "globals": "^16.1.0",
+    "prettier": "3.5.3"
+  },
+  "packageManager": "pnpm@10.11.0"
 }

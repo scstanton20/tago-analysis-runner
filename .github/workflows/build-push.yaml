@@ -48,17 +48,10 @@ jobs:
         id: push-backend
         with:
           context: .
-          file: ./Dockerfile.prod
-          target: backend
+          file: ./docker-config/production/backend.Dockerfile
           push: true
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64/v8
           tags: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:latest
-    #  - name: Generate artifact attestation for Backend
-    #    uses: actions/attest-build-provenance@v2
-    #    with:
-    #     subject-name: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}
-    #     subject-digest: ${{ steps.push-backend.outputs.digest }}
-    #     push-to-registry: true
 
   build-frontend:
     needs: setup
@@ -86,14 +79,7 @@ jobs:
         id: push-frontend
         with:
           context: .
-          file: ./Dockerfile.prod
-          target: frontend
+          file: ./docker-config/production/frontend.Dockerfile
           push: true
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64/v8
           tags: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:latest
-      # - name: Generate artifact attestation for Frontend
-      #   uses: actions/attest-build-provenance@v2
-      #   with:
-      #    subject-name: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}
-      #    subject-digest: ${{ steps.push-frontend.outputs.digest }}
-      #    push-to-registry: true

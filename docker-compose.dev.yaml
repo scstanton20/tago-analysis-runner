@@ -1,0 +1,25 @@
+# ./docker-compose.dev.yaml
+---
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: ./docker-config/development/frontend.Dockerfile
+    volumes:
+      - ./apps/frontend:/app/apps/frontend
+      - /app/apps/frontend/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      - NODE_ENV=development
+
+  backend:
+    build:
+      context: .
+      dockerfile: ./docker-config/development/backend.Dockerfile
+    volumes:
+      - ./apps/backend:/app/apps/backend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development

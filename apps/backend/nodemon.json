@@ -1,0 +1,18 @@
+{
+  "verbose": true,
+  "ignore": ["analyses-storage", "dist"],
+  "watch": ["src/**/*.js", "config/*.js", "src/**/*.ts", "config/*.ts"],
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "ext": "js,json,ts",
+  "delay": "1000",
+  "execMap": {
+    "js": "node",
+    "ts": "ts-node"
+  },
+  "events": {
+    "restart": "echo \"Application restarted due to changes!\""
+  },
+  "restartable": "rs"
+}
