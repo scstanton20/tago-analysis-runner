@@ -33,7 +33,7 @@ export default function AnalysisCreator() {
     const file = event.target.files[0];
     if (file) {
       if (!file.name.endsWith('.js')) {
-        setError('Please select a JavaScript file (.js)');
+        setError('Please select a JavaScript file (.cjs)');
         setSelectedFile(null);
         setEditableFileName('');
         event.target.value = null;
@@ -42,7 +42,7 @@ export default function AnalysisCreator() {
       setError(null);
       setSelectedFile(file);
       setEditableFileName(file.name);
-      setAnalysisName(file.name.replace('.js', ''));
+      setAnalysisName(file.name.replace('.cjs', ''));
     }
   };
 
@@ -182,7 +182,7 @@ export default function AnalysisCreator() {
                     disabled={uploading}
                   />
                   <p className="text-sm text-gray-500">
-                    .js extension will be added automatically.
+                    .cjs extension will be added automatically.
                   </p>
                   <p className="text-sm text-gray-500">
                     You will be able to edit the environment variables after

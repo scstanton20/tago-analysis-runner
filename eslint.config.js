@@ -1,16 +1,16 @@
-// eslint.config.js - CommonJS format
-const js = require('@eslint/js');
-const globals = require('globals');
-const react = require('eslint-plugin-react');
-const reactHooks = require('eslint-plugin-react-hooks');
-const reactRefresh = require('eslint-plugin-react-refresh');
-const nodePlugin = require('eslint-plugin-n');
-const securityPlugin = require('eslint-plugin-security');
-const ymlPlugin = require('eslint-plugin-yml');
+// eslint.config.js
+import js from '@eslint/js';
+import globals from 'globals';
+import react from 'eslint-plugin-react';
+import reactHooks from 'eslint-plugin-react-hooks';
+import reactRefresh from 'eslint-plugin-react-refresh';
+import nodePlugin from 'eslint-plugin-n';
+import securityPlugin from 'eslint-plugin-security';
+import ymlPlugin from 'eslint-plugin-yml';
 
-module.exports = [
+export default [
   // Common ignores
-  { ignores: ['dist', 'node_modules', 'build', '.pnpm'] },
+  { ignores: ['**/dist/**', '**/node_modules/**', '**/build/**', '**/.pnpm/**', 'dist/', 'node_modules/', 'build/', '.pnpm/'] },
 
   // Common base configuration for all JavaScript files
   {
@@ -22,10 +22,10 @@ module.exports = [
     rules: {
       ...js.configs.recommended.rules,
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
-      'indent': ['error', 2],
+      indent: ['error', 2],
       'linebreak-style': ['error', 'unix'],
-      'quotes': ['error', 'single', { 'avoidEscape': true }],
-      'semi': ['error', 'always'],
+      quotes: ['error', 'single', { avoidEscape: true }],
+      semi: ['error', 'always'],
       'comma-dangle': ['error', 'always-multiline'],
       'no-var': 'error',
       'prefer-const': 'error',
@@ -46,7 +46,7 @@ module.exports = [
       },
     },
     plugins: {
-      'react': react,
+      react: react,
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
     },
@@ -61,15 +61,15 @@ module.exports = [
 
   // Backend Express/Node.js specific configuration
   {
-    files: ['**/backend/**/*.{js,mjs,cjs}'],
+    files: ['**/backend/**/*.{js,ts}'],
     languageOptions: {
       globals: {
         ...globals.node,
       },
     },
     plugins: {
-      'node': nodePlugin,
-      'security': securityPlugin,
+      node: nodePlugin,
+      security: securityPlugin,
     },
     rules: {
       // Error prevention for Node.js
@@ -105,7 +105,7 @@ module.exports = [
   {
     files: ['*.{yaml}'],
     plugins: {
-      'yml': ymlPlugin,
+      yml: ymlPlugin,
     },
     languageOptions: {
       parser: ymlPlugin.parser,

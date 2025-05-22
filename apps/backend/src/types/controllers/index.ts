@@ -57,18 +57,54 @@ export interface AnalysisRunBody {
 // Define specific controller function types
 type UploadAnalysisFunction = (req: Request, res: Response) => Promise<void>;
 type GetAnalysesFunction = (req: Request, res: Response) => Promise<void>;
-type RunAnalysisFunction = (req: Request<FileNameParams>, res: Response) => Promise<void>;
-type StopAnalysisFunction = (req: Request<FileNameParams>, res: Response) => Promise<void>;
-type DeleteAnalysisFunction = (req: Request<FileNameParams>, res: Response) => Promise<void>;
-type GetAnalysisContentFunction = (req: Request<FileNameParams>, res: Response) => Promise<void>;
-type UpdateAnalysisFunction = (req: Request<FileNameParams, any, AnalysisUpdateBody>, res: Response) => Promise<void>;
-type RenameAnalysisFunction = (req: Request<FileNameParams, any, AnalysisRenameBody>, res: Response) => Promise<void>;
-type GetLogsFunction = (req: Request<FileNameParams, any, any, PaginationQuery>, res: Response) => Promise<void>;
-type DownloadLogsFunction = (req: Request<FileNameParams, any, any, LogDownloadQuery>, res: Response) => Promise<void>;
-type ClearLogsFunction = (req: Request<FileNameParams>, res: Response) => Promise<void>;
-type DownloadAnalysisFunction = (req: Request<FileNameParams>, res: Response) => Promise<void>;
-type GetEnvironmentFunction = (req: Request<FileNameParams>, res: Response) => Promise<void>;
-type UpdateEnvironmentFunction = (req: Request<FileNameParams, any, EnvironmentUpdateBody>, res: Response) => Promise<void>;
+type RunAnalysisFunction = (
+  req: Request<FileNameParams>,
+  res: Response,
+) => Promise<void>;
+type StopAnalysisFunction = (
+  req: Request<FileNameParams>,
+  res: Response,
+) => Promise<void>;
+type DeleteAnalysisFunction = (
+  req: Request<FileNameParams>,
+  res: Response,
+) => Promise<void>;
+type GetAnalysisContentFunction = (
+  req: Request<FileNameParams>,
+  res: Response,
+) => Promise<void>;
+type UpdateAnalysisFunction = (
+  req: Request<FileNameParams, any, AnalysisUpdateBody>,
+  res: Response,
+) => Promise<void>;
+type RenameAnalysisFunction = (
+  req: Request<FileNameParams, any, AnalysisRenameBody>,
+  res: Response,
+) => Promise<void>;
+type GetLogsFunction = (
+  req: Request<FileNameParams, any, any, PaginationQuery>,
+  res: Response,
+) => Promise<void>;
+type DownloadLogsFunction = (
+  req: Request<FileNameParams, any, any, LogDownloadQuery>,
+  res: Response,
+) => Promise<void>;
+type ClearLogsFunction = (
+  req: Request<FileNameParams>,
+  res: Response,
+) => Promise<void>;
+type DownloadAnalysisFunction = (
+  req: Request<FileNameParams>,
+  res: Response,
+) => Promise<void>;
+type GetEnvironmentFunction = (
+  req: Request<FileNameParams>,
+  res: Response,
+) => Promise<void>;
+type UpdateEnvironmentFunction = (
+  req: Request<FileNameParams, any, EnvironmentUpdateBody>,
+  res: Response,
+) => Promise<void>;
 
 /**
  * Analysis controller interface

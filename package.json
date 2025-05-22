@@ -2,6 +2,7 @@
   "name": "@scstanton20/tago-runner-monorepo",
   "private": true,
   "version": "1.0.0",
+  "type": "module",
   "engines": {
     "node": ">=22.0.0"
   },
@@ -9,6 +10,10 @@
     "dev": "pnpm run dev:frontend & pnpm run dev:backend",
     "dev:frontend": "pnpm --filter \"frontend\" run dev",
     "dev:backend": "pnpm --filter \"backend\" run dev",
+    "build:backend": "pnpm --filter \"backend\" run build",
+    "build:frontend": "pnpm --filter \"frontend\" run build",
+    "build": "pnpm run build:frontend && pnpm run build:backend",
+    "build:start": "pnpm run build & pnpm --filter \"backend\" run start & pnpm --filter \"frontend\" run preview",
     "prettify": "npx prettier . --write",
     "lint": "npx eslint .",
     "lint:fix": "npx eslint . --fix"

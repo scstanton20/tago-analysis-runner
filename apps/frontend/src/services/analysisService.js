@@ -318,7 +318,7 @@ export const analysisService = {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${fileName}.js`;
+      a.download = `${fileName}.cjs`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);

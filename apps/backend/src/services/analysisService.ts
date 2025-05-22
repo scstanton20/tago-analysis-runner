@@ -1,4 +1,3 @@
-<<<<<<<< HEAD:apps/backend/src/services/analysisService.ts
 // src/services/analysisService.ts
 import path from "path";
 import fs from "fs/promises";
@@ -6,46 +5,32 @@ import config from "config/default.js";
 import { encrypt, decrypt } from "utils/cryptoUtils.js";
 import AnalysisProcess from "models/analysisProcess.js";
 import ConnectionMonitor from "models/connectionMonitor.js";
-import { 
-  Analysis, 
-  AnalysisLog, 
-  AnalysisStatus, 
-  AnalysisUpdateResult, 
-  ConnectionState, 
-  EnvironmentVariables, 
-  IAnalysisProcess, 
-  IAnalysisService, 
-  IConnectionMonitor, 
-  LogDownloadResult, 
-  LogTimeRange 
+import {
+  Analysis,
+  AnalysisLog,
+  AnalysisStatus,
+  AnalysisUpdateResult,
+  ConnectionState,
+  EnvironmentVariables,
+  IAnalysisProcess,
+  IAnalysisService,
+  IConnectionMonitor,
+  LogDownloadResult,
+  LogTimeRange,
 } from "types/index.js";
 
 class AnalysisService implements IAnalysisService {
   analyses: Map<string, IAnalysisProcess>;
   connectionMonitors: Map<string, IConnectionMonitor>;
-========
-const path = require('path');
-const fs = require('fs').promises;
-const config = require('../config/default');
-const { encrypt, decrypt } = require('../utils/cryptoUtils');
-const AnalysisProcess = require('../models/analysisProcess');
-const ConnectionMonitor = require('../models/connectionMonitor');
->>>>>>>> main:apps/backend/src/services/analysisService.js
 
   constructor() {
     this.analyses = new Map();
     this.connectionMonitors = new Map();
   }
-<<<<<<<< HEAD:apps/backend/src/services/analysisService.ts
 
   validateTimeRange(timeRange: string): boolean {
-    const validRanges: LogTimeRange[] = ["24h", "7d", "30d", "all"];
+    const validRanges: LogTimeRange[] = ["1h", "24h", "7d", "30d", "all"];
     return validRanges.includes(timeRange as LogTimeRange);
-========
-  validateTimeRange(timeRange) {
-    const validRanges = ['1h', '24h', '7d', '30d', 'all'];
-    return validRanges.includes(timeRange);
->>>>>>>> main:apps/backend/src/services/analysisService.js
   }
 
   async ensureDirectories(): Promise<void> {
@@ -66,7 +51,8 @@ const ConnectionMonitor = require('../models/connectionMonitor');
           shouldRestart: analysis.connectionState?.shouldRestart,
           disconnectedAt: analysis.connectionState?.disconnectedAt,
           history: {
-            lastDisconnected: analysis.connectionState?.history?.lastDisconnected,
+            lastDisconnected:
+              analysis.connectionState?.history?.lastDisconnected,
             lastRestored: analysis.connectionState?.history?.lastRestored,
           },
         },
@@ -74,7 +60,7 @@ const ConnectionMonitor = require('../models/connectionMonitor');
     });
 
     await fs.writeFile(
-      path.join(config.paths.config, 'analyses-config.json'),
+      path.join(config.paths.config, "analyses-config.json"),
       JSON.stringify(configuration, null, 2),
     );
   }
@@ -83,24 +69,27 @@ const ConnectionMonitor = require('../models/connectionMonitor');
     const basePath = path.join(config.paths.analysis, analysisName);
     await Promise.all([
       fs.mkdir(basePath, { recursive: true }),
-      fs.mkdir(path.join(basePath, 'env'), { recursive: true }),
-      fs.mkdir(path.join(basePath, 'logs'), { recursive: true }),
+      fs.mkdir(path.join(basePath, "env"), { recursive: true }),
+      fs.mkdir(path.join(basePath, "logs"), { recursive: true }),
     ]);
     return basePath;
   }
 
-  async uploadAnalysis(file: any, type: string): Promise<{ analysisName: string }> {
+  async uploadAnalysis(
+    file: any,
+    type: string,
+  ): Promise<{ analysisName: string }> {
     const analysisName = path.parse(file.name).name;
     const basePath = await this.createAnalysisDirectories(analysisName);
-    const filePath = path.join(basePath, 'index.js');
+    const filePath = path.join(basePath, "index.cjs");
 
     await file.mv(filePath);
     const analysis = new AnalysisProcess(analysisName, type, this);
     this.analyses.set(analysisName, analysis);
     await this.initializeConnectionMonitor(analysisName, type);
 
-    const envFile = path.join(basePath, 'env', '.env');
-    await fs.writeFile(envFile, '', 'utf8');
+    const envFile = path.join(basePath, "env", ".env");
+    await fs.writeFile(envFile, "", "utf8");
 
     await this.saveConfig();
 
@@ -110,42 +99,19 @@ const ConnectionMonitor = require('../models/connectionMonitor');
   async getRunningAnalyses(): Promise<Analysis[]> {
     const analysisDirectories = await fs.readdir(config.paths.analysis);
 
-<<<<<<<< HEAD:apps/backend/src/services/analysisService.ts
     const analysesPromises = analysisDirectories.map(async (dirName) => {
-      const indexPath = path.join(config.paths.analysis, dirName, "index.js");
+      const indexPath = path.join(config.paths.analysis, dirName, "index.cjs");
       try {
         const stats = await fs.stat(indexPath);
         const analysis = this.analyses.get(dirName);
 
         if (!this.analyses.has(dirName)) {
-          const newAnalysis = new AnalysisProcess(dirName, analysis?.type || "listener", this);
+          const newAnalysis = new AnalysisProcess(
+            dirName,
+            analysis?.type || "listener",
+            this,
+          );
           this.analyses.set(dirName, newAnalysis);
-========
-    return Promise.all(
-      analysisDirectories.map(async (dirName) => {
-        const indexPath = path.join(config.paths.analysis, dirName, 'index.js');
-        try {
-          const stats = await fs.stat(indexPath);
-          const analysis = this.analyses.get(dirName);
-
-          if (!this.analyses.has(dirName)) {
-            this.analyses.set(dirName, analysis);
-          }
-
-          return {
-            name: dirName,
-            size: stats.size,
-            created: stats.birthtime,
-            type: analysis?.type || 'listener',
-            status: analysis?.status || 'stopped',
-            enabled: analysis?.enabled || false,
-            lastRun: analysis?.lastRun,
-            startTime: analysis?.startTime,
-          };
-        } catch (error) {
-          if (error.code === 'ENOENT') return null;
-          throw error;
->>>>>>>> main:apps/backend/src/services/analysisService.js
         }
 
         return {
@@ -165,13 +131,19 @@ const ConnectionMonitor = require('../models/connectionMonitor');
     });
 
     const results = await Promise.all(analysesPromises);
-    return results.filter((analysis): analysis is Analysis => analysis !== null);
+    return results.filter(
+      (analysis): analysis is Analysis => analysis !== null,
+    );
   }
 
   async runAnalysis(
-    analysisName: string, 
-    type: string
-  ): Promise<{ success: boolean; status: AnalysisStatus; logs: AnalysisLog[] }> {
+    analysisName: string,
+    type: string,
+  ): Promise<{
+    success: boolean;
+    status: AnalysisStatus;
+    logs: AnalysisLog[];
+  }> {
     let analysis = this.analyses.get(analysisName);
 
     if (!analysis) {
@@ -183,10 +155,10 @@ const ConnectionMonitor = require('../models/connectionMonitor');
     }
 
     await analysis.start();
-    return { 
-      success: true, 
-      status: analysis.status, 
-      logs: analysis.logs 
+    return {
+      success: true,
+      status: analysis.status,
+      logs: analysis.logs,
     };
   }
 
@@ -206,7 +178,7 @@ const ConnectionMonitor = require('../models/connectionMonitor');
       const filePath = path.join(
         config.paths.analysis,
         analysisName,
-        'index.js',
+        "index.cjs",
       );
 
       // Check if the path is a directory instead of a file
@@ -215,24 +187,22 @@ const ConnectionMonitor = require('../models/connectionMonitor');
         throw new Error(`Expected a file but found a directory: ${filePath}`);
       }
 
-      // Read and return the content of the index.js file
-      const content = await fs.readFile(filePath, 'utf8');
+      // Read and return the content of the index.cjs file
+      const content = await fs.readFile(filePath, "utf8");
       return content;
-<<<<<<<< HEAD:apps/backend/src/services/analysisService.ts
     } catch (error: any) {
       console.error("Error reading analysis content:", error);
-========
-    } catch (error) {
-      console.error('Error reading analysis content:', error);
->>>>>>>> main:apps/backend/src/services/analysisService.js
       throw new Error(`Failed to get analysis content: ${error.message}`);
     }
   }
 
-  async updateAnalysis(analysisName: string, content: string): Promise<AnalysisUpdateResult> {
+  async updateAnalysis(
+    analysisName: string,
+    content: string,
+  ): Promise<AnalysisUpdateResult> {
     try {
       const analysis = this.analyses.get(analysisName);
-      const wasRunning = analysis && analysis.status === 'running';
+      const wasRunning = analysis && analysis.status === "running";
 
       // If running, stop the analysis first
       if (wasRunning) {
@@ -242,9 +212,9 @@ const ConnectionMonitor = require('../models/connectionMonitor');
       const filePath = path.join(
         config.paths.analysis,
         analysisName,
-        'index.js',
+        "index.cjs",
       );
-      await fs.writeFile(filePath, content, 'utf8');
+      await fs.writeFile(filePath, content, "utf8");
 
       // If it was running before, restart it
       if (wasRunning) {
@@ -255,18 +225,16 @@ const ConnectionMonitor = require('../models/connectionMonitor');
         success: true,
         restarted: !!wasRunning,
       };
-<<<<<<<< HEAD:apps/backend/src/services/analysisService.ts
     } catch (error: any) {
       console.error("Error updating analysis:", error);
-========
-    } catch (error) {
-      console.error('Error updating analysis:', error);
->>>>>>>> main:apps/backend/src/services/analysisService.js
       throw new Error(`Failed to update analysis: ${error.message}`);
     }
   }
 
-  async renameAnalysis(analysisName: string, newFileName: string): Promise<AnalysisUpdateResult> {
+  async renameAnalysis(
+    analysisName: string,
+    newFileName: string,
+  ): Promise<AnalysisUpdateResult> {
     try {
       const analysis = this.analyses.get(analysisName);
 
@@ -274,14 +242,14 @@ const ConnectionMonitor = require('../models/connectionMonitor');
         throw new Error(`Analysis '${analysisName}' not found`);
       }
 
-      const wasRunning = analysis && analysis.status === 'running';
+      const wasRunning = analysis && analysis.status === "running";
 
       // If running, stop the analysis first
       if (wasRunning) {
         await this.stopAnalysis(analysisName);
         await this.addLog(
           analysisName,
-          'Stopping analysis for rename operation',
+          "Stopping analysis for rename operation",
         );
       }
 
@@ -295,13 +263,8 @@ const ConnectionMonitor = require('../models/connectionMonitor');
         throw new Error(
           `Cannot rename: target '${newFileName}' already exists`,
         );
-<<<<<<<< HEAD:apps/backend/src/services/analysisService.ts
       } catch (err: any) {
         if (err.code !== "ENOENT") throw err;
-========
-      } catch (err) {
-        if (err.code !== 'ENOENT') throw err;
->>>>>>>> main:apps/backend/src/services/analysisService.js
         // ENOENT error means file doesn't exist, which is what we want
       }
 
@@ -313,7 +276,11 @@ const ConnectionMonitor = require('../models/connectionMonitor');
 
       // Use the setter to update the name (which updates the logFile path)
       // Create a new AnalysisProcess instance with the new name
-      const updatedAnalysis = new AnalysisProcess(newFileName, analysis.type, this);
+      const updatedAnalysis = new AnalysisProcess(
+        newFileName,
+        analysis.type,
+        this,
+      );
       Object.assign(updatedAnalysis, {
         enabled: analysis.enabled,
         status: analysis.status,
@@ -348,7 +315,7 @@ const ConnectionMonitor = require('../models/connectionMonitor');
         await this.runAnalysis(newFileName, analysis.type);
         await this.addLog(
           newFileName,
-          'Analysis restarted after rename operation',
+          "Analysis restarted after rename operation",
         );
       }
 
@@ -356,13 +323,8 @@ const ConnectionMonitor = require('../models/connectionMonitor');
         success: true,
         restarted: wasRunning,
       };
-<<<<<<<< HEAD:apps/backend/src/services/analysisService.ts
     } catch (error: any) {
       console.error("Error renaming analysis:", error);
-========
-    } catch (error) {
-      console.error('Error renaming analysis:', error);
->>>>>>>> main:apps/backend/src/services/analysisService.js
       throw new Error(`Failed to rename analysis: ${error.message}`);
     }
   }
@@ -376,10 +338,13 @@ const ConnectionMonitor = require('../models/connectionMonitor');
 
   getProcessStatus(analysisName: string): AnalysisStatus {
     const analysis = this.analyses.get(analysisName);
-    return analysis ? analysis.status : 'stopped';
+    return analysis ? analysis.status : "stopped";
   }
 
-  async updateConnectionState(analysisName: string, state: ConnectionState): Promise<void> {
+  async updateConnectionState(
+    analysisName: string,
+    state: ConnectionState,
+  ): Promise<void> {
     const analysis = this.analyses.get(analysisName);
     if (analysis) {
       analysis.connectionState = state;
@@ -395,13 +360,8 @@ const ConnectionMonitor = require('../models/connectionMonitor');
     }
 
     const analysis = this.analyses.get(analysisName);
-<<<<<<<< HEAD:apps/backend/src/services/analysisService.ts
     if (analysis) {
       await analysis.stop();
-========
-    if (!analysis) {
-      throw new Error('Analysis not found');
->>>>>>>> main:apps/backend/src/services/analysisService.js
     }
 
     const analysisPath = path.join(config.paths.analysis, analysisName);
@@ -419,38 +379,30 @@ const ConnectionMonitor = require('../models/connectionMonitor');
     return { message: "Analysis deleted successfully" };
   }
 
-  async loadEnvironmentVariables(analysisName: string): Promise<EnvironmentVariables> {
+  async loadEnvironmentVariables(
+    analysisName: string,
+  ): Promise<EnvironmentVariables> {
     const envFile = path.join(
       config.paths.analysis,
       analysisName,
-      'env',
-      '.env',
+      "env",
+      ".env",
     );
 
     try {
-<<<<<<<< HEAD:apps/backend/src/services/analysisService.ts
       const envContent = await fs.readFile(envFile, "utf8");
       const envVariables: EnvironmentVariables = {};
-========
-      const envContent = await fs.readFile(envFile, 'utf8');
-      const envVariables = {};
->>>>>>>> main:apps/backend/src/services/analysisService.js
 
-      envContent.split('\n').forEach((line) => {
-        const [key, encryptedValue] = line.split('=');
+      envContent.split("\n").forEach((line) => {
+        const [key, encryptedValue] = line.split("=");
         if (key && encryptedValue) {
           envVariables[key] = decrypt(encryptedValue);
         }
       });
 
       return envVariables;
-<<<<<<<< HEAD:apps/backend/src/services/analysisService.ts
     } catch (error: any) {
       if (error.code === "ENOENT") {
-========
-    } catch (error) {
-      if (error.code === 'ENOENT') {
->>>>>>>> main:apps/backend/src/services/analysisService.js
         return {}; // Return empty object if the file does not exist
       }
       throw error;
@@ -458,35 +410,37 @@ const ConnectionMonitor = require('../models/connectionMonitor');
   }
 
   async getLogs(
-    analysisName: string, 
-    page: number = 1, 
-    limit: number = 100
+    analysisName: string,
+    page: number = 1,
+    limit: number = 100,
   ): Promise<AnalysisLog[]> {
     try {
       const logFile = path.join(
         config.paths.analysis,
         analysisName,
-        'logs',
-        'analysis.log',
+        "logs",
+        "analysis.log",
       );
 
       // Ensure the log file exists
       await fs.access(logFile);
 
-      const content = await fs.readFile(logFile, 'utf8');
+      const content = await fs.readFile(logFile, "utf8");
       if (!content.trim()) {
         return []; // Return empty array if there are no logs
       }
 
       const allLogs = content
         .trim()
-        .split('\n')
+        .split("\n")
         .map((line) => {
           const match = line.match(/\[(.*?)\] (.*)/);
-          return match ? { 
-            timestamp: match[1], 
-            message: match[2] 
-          } : null;
+          return match
+            ? {
+                timestamp: match[1],
+                message: match[2],
+              }
+            : null;
         })
         .filter((log): log is AnalysisLog => log !== null)
         .reverse(); // Most recent logs first
@@ -495,26 +449,20 @@ const ConnectionMonitor = require('../models/connectionMonitor');
       const startIndex = (page - 1) * limit;
       const endIndex = startIndex + limit;
       return allLogs.slice(startIndex, endIndex);
-<<<<<<<< HEAD:apps/backend/src/services/analysisService.ts
     } catch (error: any) {
       if (error.code === "ENOENT") {
-========
-    } catch (error) {
-      if (error.code === 'ENOENT') {
->>>>>>>> main:apps/backend/src/services/analysisService.js
         return []; // Return empty array if the file doesn't exist
       }
-      console.error('Error retrieving logs:', error);
+      console.error("Error retrieving logs:", error);
       throw new Error(`Failed to retrieve logs: ${error.message}`);
     }
   }
 
   async getLogsForDownload(
-    analysisName: string, 
-    timeRange: LogTimeRange
+    analysisName: string,
+    timeRange: LogTimeRange,
   ): Promise<LogDownloadResult> {
     try {
-<<<<<<<< HEAD:apps/backend/src/services/analysisService.ts
       const logFile = path.join(
         config.paths.analysis,
         analysisName,
@@ -530,17 +478,14 @@ const ConnectionMonitor = require('../models/connectionMonitor');
 
       if (timeRange === "all") {
         return { logFile, content };
-========
-      await fs.rm(analysisPath, { recursive: true, force: true });
-    } catch (error) {
-      if (error.code !== 'ENOENT') {
-        throw error;
->>>>>>>> main:apps/backend/src/services/analysisService.js
       }
 
       // Filter logs based on timestamp
       const cutoffDate = new Date();
       switch (timeRange) {
+        case "1h":
+          cutoffDate.setHours(cutoffDate.getHours() - 1);
+          break;
         case "24h":
           cutoffDate.setHours(cutoffDate.getHours() - 24);
           break;
@@ -570,17 +515,11 @@ const ConnectionMonitor = require('../models/connectionMonitor');
       }
       throw error;
     }
-<<<<<<<< HEAD:apps/backend/src/services/analysisService.ts
-========
-
-    this.analyses.delete(analysisName);
-    await this.saveConfig();
-
-    return { message: 'Analysis deleted successfully' };
->>>>>>>> main:apps/backend/src/services/analysisService.js
   }
 
-  async clearLogs(analysisName: string): Promise<{ success: boolean; message: string }> {
+  async clearLogs(
+    analysisName: string,
+  ): Promise<{ success: boolean; message: string }> {
     try {
       const logFilePath = path.join(
         config.paths.analysis,
@@ -646,8 +585,8 @@ const ConnectionMonitor = require('../models/connectionMonitor');
   }
 
   async updateEnvironment(
-    analysisName: string, 
-    env: EnvironmentVariables
+    analysisName: string,
+    env: EnvironmentVariables,
   ): Promise<AnalysisUpdateResult> {
     const envFile = path.join(
       config.paths.analysis,
@@ -697,13 +636,13 @@ const ConnectionMonitor = require('../models/connectionMonitor');
     let configuration: Record<string, any> = {};
     try {
       const configData = await fs.readFile(
-        path.join(config.paths.config, 'analyses-config.json'),
-        'utf8',
+        path.join(config.paths.config, "analyses-config.json"),
+        "utf8",
       );
       configuration = JSON.parse(configData);
-      console.log('Loaded analysis configuration');
+      console.log("Loaded analysis configuration");
     } catch (error) {
-      console.log('No existing config found, creating new');
+      console.log("No existing config found, creating new");
       await this.saveConfig();
     }
 
@@ -714,7 +653,7 @@ const ConnectionMonitor = require('../models/connectionMonitor');
           const indexPath = path.join(
             config.paths.analysis,
             dirName,
-            'index.js',
+            "index.cjs",
           );
           const stats = await fs.stat(indexPath);
           if (stats.isFile()) {
@@ -739,7 +678,10 @@ const ConnectionMonitor = require('../models/connectionMonitor');
     return configuration;
   }
 
-  async initializeConnectionMonitor(analysisName: string, type: string): Promise<IConnectionMonitor> {
+  async initializeConnectionMonitor(
+    analysisName: string,
+    type: string,
+  ): Promise<IConnectionMonitor> {
     let monitor = this.connectionMonitors.get(analysisName);
     if (!monitor) {
       const monitorService = {
@@ -748,12 +690,14 @@ const ConnectionMonitor = require('../models/connectionMonitor');
         stopAnalysis: async (fileName: string) => this.stopAnalysis(fileName),
         runAnalysis: async (fileName: string, type: string) =>
           this.runAnalysis(fileName, type),
-        updateConnectionState: async (fileName: string, state: ConnectionState) =>
-          this.updateConnectionState(fileName, state),
+        updateConnectionState: async (
+          fileName: string,
+          state: ConnectionState,
+        ) => this.updateConnectionState(fileName, state),
         getProcessStatus: (fileName: string) => this.getProcessStatus(fileName),
         getConfig: () => this.getConfig(),
       };
-      
+
       monitor = new ConnectionMonitor(analysisName, type, monitorService);
       this.connectionMonitors.set(analysisName, monitor);
       monitor.startMonitoring();
@@ -761,15 +705,14 @@ const ConnectionMonitor = require('../models/connectionMonitor');
     return monitor;
   }
 
-  async initializeAnalysis(analysisName: string, analysisConfig: any = {}): Promise<void> {
+  async initializeAnalysis(
+    analysisName: string,
+    analysisConfig: any = {},
+  ): Promise<void> {
     const defaultConfig = {
-      type: 'listener',
+      type: "listener",
       enabled: false,
-<<<<<<<< HEAD:apps/backend/src/services/analysisService.ts
       status: "stopped" as AnalysisStatus,
-========
-      status: 'stopped',
->>>>>>>> main:apps/backend/src/services/analysisService.js
       lastRun: null,
       startTime: null,
       connectionState: {
@@ -800,22 +743,22 @@ const ConnectionMonitor = require('../models/connectionMonitor');
       const logFile = path.join(
         config.paths.analysis,
         analysisName,
-        'logs',
-        'analysis.log',
+        "logs",
+        "analysis.log",
       );
-      const logContent = await fs.readFile(logFile, 'utf8');
+      const logContent = await fs.readFile(logFile, "utf8");
       analysis.logs = logContent
         .trim()
-        .split('\n')
+        .split("\n")
         .reverse()
         .slice(0, config.analysis.maxLogsInMemory)
         .map((line) => {
           const match = line.match(/\[(.*?)\] (.*)/);
           return match
             ? {
-              timestamp: match[1],
-              message: match[2],
-            }
+                timestamp: match[1],
+                message: match[2],
+              }
             : null;
         })
         .filter((log): log is AnalysisLog => log !== null);
@@ -826,219 +769,6 @@ const ConnectionMonitor = require('../models/connectionMonitor');
     this.analyses.set(analysisName, analysis);
     await this.initializeConnectionMonitor(analysisName, fullConfig.type);
   }
-<<<<<<<< HEAD:apps/backend/src/services/analysisService.ts
-========
-
-  async getAnalysisContent(analysisName) {
-    try {
-      const filePath = path.join(
-        config.paths.analysis,
-        analysisName,
-        'index.js',
-      );
-      const content = await fs.readFile(filePath, 'utf8');
-      return content;
-    } catch (error) {
-      console.error('Error reading analysis content:', error);
-      throw new Error(`Failed to get analysis content: ${error.message}`);
-    }
-  }
-
-  async updateAnalysis(analysisName, content) {
-    try {
-      const analysis = this.analyses.get(analysisName);
-      const wasRunning = analysis && analysis.status === 'running';
-
-      // If running, stop the analysis first
-      if (wasRunning) {
-        await this.stopAnalysis(analysisName);
-        await this.addLog(analysisName, 'Analysis stopped to update content');
-      }
-
-      const filePath = path.join(
-        config.paths.analysis,
-        analysisName,
-        'index.js',
-      );
-      await fs.writeFile(filePath, content, 'utf8');
-
-      // If it was running before, restart it
-      if (wasRunning) {
-        await this.runAnalysis(analysisName, analysis.type);
-        await this.addLog(analysisName, 'Analysis updated successfully');
-      }
-
-      return {
-        success: true,
-        restarted: wasRunning,
-      };
-    } catch (error) {
-      console.error('Error updating analysis:', error);
-      throw new Error(`Failed to update analysis: ${error.message}`);
-    }
-  }
-
-  async getLogsForDownload(analysisName, timeRange) {
-    try {
-      const logFile = path.join(
-        config.paths.analysis,
-        analysisName,
-        'logs',
-        'analysis.log',
-      );
-
-      // Ensure the log file exists
-      await fs.access(logFile);
-
-      const content = await fs.readFile(logFile, 'utf8');
-      const lines = content.trim().split('\n');
-
-      if (timeRange === 'all') {
-        return { logFile, content };
-      }
-
-      // Filter logs based on timestamp
-      const cutoffDate = new Date();
-      switch (timeRange) {
-      case '1h':
-        cutoffDate.setHours(cutoffDate.getHours() - 1);
-        break;
-      case '24h':
-        cutoffDate.setHours(cutoffDate.getHours() - 24);
-        break;
-      case '7d':
-        cutoffDate.setDate(cutoffDate.getDate() - 7);
-        break;
-      case '30d':
-        cutoffDate.setDate(cutoffDate.getDate() - 30);
-        break;
-      default:
-        throw new Error('Invalid time range specified');
-      }
-
-      const filteredLogs = lines.filter((line) => {
-        const timestampMatch = line.match(/\[(.*?)\]/);
-        if (timestampMatch) {
-          const logDate = new Date(timestampMatch[1]);
-          return logDate >= cutoffDate;
-        }
-        return false;
-      });
-
-      return { logFile, content: filteredLogs.join('\n') };
-    } catch (error) {
-      if (error.code === 'ENOENT') {
-        throw new Error(`Log file not found for analysis: ${analysisName}`);
-      }
-      throw error;
-    }
-  }
-  async getEnvironment(analysisName) {
-    const envFile = path.join(
-      config.paths.analysis,
-      analysisName,
-      'env',
-      '.env',
-    );
-    try {
-      const envContent = await fs.readFile(envFile, 'utf8');
-      const envVariables = {};
-      envContent.split('\n').forEach((line) => {
-        const [key, encryptedValue] = line.split('=');
-        if (key && encryptedValue) {
-          envVariables[key] = decrypt(encryptedValue);
-        }
-      });
-      return envVariables;
-    } catch (error) {
-      if (error.code === 'ENOENT') {
-        return {}; // Return an empty object if the env file does not exist
-      }
-      throw error;
-    }
-  }
-  async clearLogs(analysisName) {
-    try {
-      const logFilePath = path.join(
-        config.paths.analysis,
-        analysisName,
-        'logs',
-        'analysis.log',
-      );
-
-      // Check if the logs directory exists, create it if not
-      const logsDir = path.dirname(logFilePath);
-      await fs.mkdir(logsDir, { recursive: true });
-
-      // Delete the existing log file if it exists
-      try {
-        await fs.unlink(logFilePath);
-      } catch (error) {
-        // Ignore if file doesn't exist
-        if (error.code !== 'ENOENT') {
-          throw error;
-        }
-      }
-
-      // Create a new empty log file
-      await fs.writeFile(logFilePath, '', 'utf8');
-
-      // Update in-memory logs for this analysis
-      const analysis = this.analyses.get(analysisName);
-      if (analysis) {
-        analysis.logs = [];
-        await this.addLog(analysisName, 'Log file cleared');
-      }
-
-      return { success: true, message: 'Logs cleared successfully' };
-    } catch (error) {
-      console.error('Error clearing logs:', error);
-      throw new Error(`Failed to clear logs: ${error.message}`);
-    }
-  }
-  async updateEnvironment(analysisName, env) {
-    const envFile = path.join(
-      config.paths.analysis,
-      analysisName,
-      'env',
-      '.env',
-    );
-    const analysis = this.analyses.get(analysisName);
-    const wasRunning = analysis && analysis.status === 'running';
-
-    try {
-      // If running, stop the analysis first
-      if (wasRunning) {
-        await this.stopAnalysis(analysisName);
-        await this.addLog(
-          analysisName,
-          'Analysis stopped to update environment',
-        );
-      }
-
-      const envContent = Object.entries(env)
-        .map(([key, value]) => `${key}=${encrypt(value)}`)
-        .join('\n');
-
-      await fs.mkdir(path.dirname(envFile), { recursive: true });
-      await fs.writeFile(envFile, envContent, 'utf8');
-
-      // If it was running before, restart it
-      if (wasRunning) {
-        await this.runAnalysis(analysisName, analysis.type);
-        await this.addLog(analysisName, 'Analysis updated successfully');
-      }
-
-      return {
-        success: true,
-        restarted: wasRunning,
-      };
-    } catch (error) {
-      console.error('Error updating environment:', error);
-      throw new Error(`Failed to update environment: ${error.message}`);
-    }
-  }
->>>>>>>> main:apps/backend/src/services/analysisService.js
 }
 
 // Create and export a singleton instance

@@ -3,28 +3,28 @@ import path from "path";
 interface StorageConfig {
   base: string;
   createDirs: boolean;
-};
+}
 
 interface AnalysisConfig {
   maxLogsInMemory: number;
   forceKillTimeout: number;
   autoRestartDelay: number;
-};
+}
 
 interface ProcessConfig {
   env: {
     NODE_PATH: string;
   };
-};
+}
 
 interface PathsConfig {
   analysis: string;
   config: string;
-};
+}
 
 interface FilesConfig {
   config: string;
-};
+}
 
 interface Config {
   env: string | undefined;
@@ -34,7 +34,7 @@ interface Config {
   process: ProcessConfig;
   paths: PathsConfig;
   files: FilesConfig;
-};
+}
 
 // Function to determine the storage base
 function determineStorageBase(): string {
@@ -69,7 +69,10 @@ const config: Config = {
     config: path.join(determineStorageBase(), "config"),
   },
   files: {
-    config: path.join(path.join(determineStorageBase(), "config"), "analyses-config.json"),
+    config: path.join(
+      path.join(determineStorageBase(), "config"),
+      "analyses-config.json",
+    ),
   },
 };
 

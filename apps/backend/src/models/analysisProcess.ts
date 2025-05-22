@@ -1,19 +1,16 @@
-<<<<<<<< HEAD:apps/backend/src/models/analysisProcess.ts
 // models/AnalysisProcess.ts
 import path from "path";
 import fs from "fs/promises";
 import { fork, ChildProcess } from "child_process";
 import { broadcastUpdate } from "utils/websocket.js";
 import config from "config/default.js";
-import { AnalysisLog, AnalysisStatus, ConnectionState, IAnalysisProcess, IAnalysisService } from "types/index.js";
-========
-// models/AnalysisProcess.js
-const path = require('path');
-const fs = require('fs').promises;
-const { fork } = require('child_process');
-const { broadcastUpdate } = require('../utils/websocket');
-const config = require('../config/default');
->>>>>>>> main:apps/backend/src/models/analysisProcess.js
+import {
+  AnalysisLog,
+  AnalysisStatus,
+  ConnectionState,
+  IAnalysisProcess,
+  IAnalysisService,
+} from "types/index.js";
 
 export default class AnalysisProcess implements IAnalysisProcess {
   private _analysisName: string;
@@ -37,16 +34,16 @@ export default class AnalysisProcess implements IAnalysisProcess {
     this.process = null;
     this.logs = [];
     this.enabled = false;
-    this.status = 'stopped';
+    this.status = "stopped";
     this.lastRun = null;
     this.startTime = null;
-    this.stdoutBuffer = '';
-    this.stderrBuffer = '';
+    this.stdoutBuffer = "";
+    this.stderrBuffer = "";
     this.logFile = path.join(
       config.paths.analysis,
       analysisName,
-      'logs',
-      'analysis.log',
+      "logs",
+      "analysis.log",
     );
   }
 
@@ -63,8 +60,8 @@ export default class AnalysisProcess implements IAnalysisProcess {
     this.logFile = path.join(
       config.paths.analysis,
       newName,
-      'logs',
-      'analysis.log',
+      "logs",
+      "analysis.log",
     );
 
     console.log(
@@ -72,7 +69,6 @@ export default class AnalysisProcess implements IAnalysisProcess {
     );
   }
 
-<<<<<<<< HEAD:apps/backend/src/models/analysisProcess.ts
   setupProcessHandlers(): void {
     this.stdoutBuffer = "";
     this.stderrBuffer = "";
@@ -86,26 +82,11 @@ export default class AnalysisProcess implements IAnalysisProcess {
     }
 
     this.process?.once("exit", this.handleExit.bind(this));
-========
-  setupProcessHandlers() {
-    this.stdoutBuffer = '';
-    this.stderrBuffer = '';
-
-    if (this.process.stdout) {
-      this.process.stdout.on('data', this.handleOutput.bind(this, false));
-    }
-
-    if (this.process.stderr) {
-      this.process.stderr.on('data', this.handleOutput.bind(this, true));
-    }
-
-    this.process.once('exit', this.handleExit.bind(this));
->>>>>>>> main:apps/backend/src/models/analysisProcess.js
   }
 
   handleOutput(isError: boolean, data: Buffer): void {
     const buffer = isError ? this.stderrBuffer : this.stdoutBuffer;
-    const lines = data.toString().split('\n');
+    const lines = data.toString().split("\n");
 
     lines.forEach((line, index) => {
       if (index === lines.length - 1) {
@@ -120,14 +101,14 @@ export default class AnalysisProcess implements IAnalysisProcess {
           this.addLog(isError ? `ERROR: ${fullLine}` : fullLine);
         }
         if (isError) {
-          this.stderrBuffer = '';
+          this.stderrBuffer = "";
         } else {
-          this.stdoutBuffer = '';
+          this.stdoutBuffer = "";
         }
       }
     });
   }
-  
+
   async start(): Promise<void> {
     if (this.process) return;
 
@@ -135,7 +116,7 @@ export default class AnalysisProcess implements IAnalysisProcess {
       const filePath = path.join(
         config.paths.analysis,
         this.analysisName,
-        'index.js',
+        "index.cjs",
       );
       await this.addLog(`Node.js ${process.version}`);
 
@@ -151,15 +132,15 @@ export default class AnalysisProcess implements IAnalysisProcess {
           ...storedEnv,
           STORAGE_BASE: config.storage.base,
         },
-        stdio: ['inherit', 'pipe', 'pipe', 'ipc'],
+        stdio: ["inherit", "pipe", "pipe", "ipc"],
       });
 
       if (!this.process) {
-        throw new Error('Failed to start analysis process');
+        throw new Error("Failed to start analysis process");
       }
 
       this.setupProcessHandlers();
-      this.updateStatus('running', true);
+      this.updateStatus("running", true);
       await this.saveConfig();
     } catch (error: any) {
       await this.addLog(`ERROR: ${error.message}`);
@@ -187,7 +168,7 @@ export default class AnalysisProcess implements IAnalysisProcess {
       console.error(`Error writing to log file ${this.logFile}:`, error);
     }
 
-    broadcastUpdate('log', {
+    broadcastUpdate("log", {
       fileName: this.analysisName,
       log: { timestamp, message },
     });
@@ -197,12 +178,12 @@ export default class AnalysisProcess implements IAnalysisProcess {
     this.status = status;
     this.enabled = enabled;
 
-    if (this.type === 'listener' && status === 'running') {
+    if (this.type === "listener" && status === "running") {
       this.startTime = new Date().toISOString();
-    } else if (status === 'running') {
+    } else if (status === "running") {
       this.lastRun = new Date().toISOString();
     }
-    broadcastUpdate('status', {
+    broadcastUpdate("status", {
       fileName: this.analysisName,
       status: this.status,
       enabled: this.enabled,
@@ -211,19 +192,13 @@ export default class AnalysisProcess implements IAnalysisProcess {
     });
   }
 
-<<<<<<<< HEAD:apps/backend/src/models/analysisProcess.ts
   async stop(): Promise<void> {
     if (!this.process || this.status !== "running") {
-========
-  async stop() {
-    if (!this.process || this.status !== 'running') {
->>>>>>>> main:apps/backend/src/models/analysisProcess.js
       return;
     }
 
-    await this.addLog('Stopping analysis...');
+    await this.addLog("Stopping analysis...");
 
-<<<<<<<< HEAD:apps/backend/src/models/analysisProcess.ts
     return new Promise<void>((resolve) => {
       this.process?.kill("SIGTERM");
 
@@ -231,27 +206,14 @@ export default class AnalysisProcess implements IAnalysisProcess {
         if (this.process) {
           this.addLog("Force stopping process...").then(() => {
             this.process?.kill("SIGKILL");
-========
-    return new Promise((resolve) => {
-      this.process.kill('SIGTERM');
-
-      const forceKillTimeout = setTimeout(() => {
-        if (this.process) {
-          this.addLog('Force stopping process...').then(() => {
-            this.process.kill('SIGKILL');
->>>>>>>> main:apps/backend/src/models/analysisProcess.js
           });
         }
       }, config.analysis.forceKillTimeout);
 
-<<<<<<<< HEAD:apps/backend/src/models/analysisProcess.ts
       this.process?.once("exit", () => {
-========
-      this.process.once('exit', () => {
->>>>>>>> main:apps/backend/src/models/analysisProcess.js
         clearTimeout(forceKillTimeout);
-        this.updateStatus('stopped', false);
-        this.addLog('Analysis stopped').then(() => {
+        this.updateStatus("stopped", false);
+        this.addLog("Analysis stopped").then(() => {
           this.process = null;
           this.saveConfig().then(resolve);
         });
@@ -280,10 +242,10 @@ export default class AnalysisProcess implements IAnalysisProcess {
     await this.addLog(`Process exited with code ${code}`);
     this.process = null;
 
-    this.updateStatus('stopped', false);
+    this.updateStatus("stopped", false);
     await this.saveConfig();
 
-    if (this.type === 'listener' && this.enabled && this.status === 'running') {
+    if (this.type === "listener" && this.enabled && this.status === "running") {
       console.log(`Auto-restarting listener: ${this.analysisName}`);
       setTimeout(() => this.start(), config.analysis.autoRestartDelay);
     }

@@ -2,39 +2,42 @@
  * MachineQ API Module
  * Core functionality for interacting with MachineQ API
  */
-import { APIVersion, DeviceData, IMachineQService, MachineQConfig, MachineQResponse } from "types/index.js";
+import {
+  APIVersion,
+  DeviceData,
+  IMachineQService,
+  MachineQConfig,
+  MachineQResponse,
+} from "types/index.js";
 
 // MachineQ API configuration
-<<<<<<<< HEAD:apps/backend/src/services/mqAPI.ts
 const MQ_CONFIG: MachineQConfig = {
   tokenUrl: "https://oauth.machineq.net/oauth2/token",
   apiUrl: "https://api.machineq.net/v1",
-========
-const MQ_CONFIG = {
-  tokenUrl: 'https://oauth.machineq.net/oauth2/token',
-  apiUrl: 'https://api.machineq.net/v1',
->>>>>>>> main:apps/backend/src/services/mqAPI.js
 };
 
 // Default headers
 const DEFAULT_HEADERS = {
-  Accept: 'application/json',
-  'Content-Type': 'application/json',
+  Accept: "application/json",
+  "Content-Type": "application/json",
 };
 
 // Login via OAuth to get access token
-async function getToken(clientId: string, clientSecret: string): Promise<string> {
+async function getToken(
+  clientId: string,
+  clientSecret: string,
+): Promise<string> {
   const formData = new URLSearchParams();
-  formData.append('grant_type', 'client_credentials');
+  formData.append("grant_type", "client_credentials");
 
   try {
     const response = await fetch(MQ_CONFIG.tokenUrl, {
-      method: 'POST',
+      method: "POST",
       body: formData,
       headers: {
-        Authorization: 'Basic ' + btoa(`${clientId}:${clientSecret}`),
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Accept: 'application/json',
+        Authorization: "Basic " + btoa(`${clientId}:${clientSecret}`),
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
       },
     });
 
@@ -63,17 +66,20 @@ async function getAPIVersion(): Promise<APIVersion> {
       return data;
     } else {
       // /version wasn't implemented before 1.0.0, set it to 0.4.0
-      return { Semantic: '0.4.0', Major: '0', Minor: '4', Patch: '0' };
+      return { Semantic: "0.4.0", Major: "0", Minor: "4", Patch: "0" };
     }
   } catch (error: any) {
     console.error(`Error getting API version: ${error.message}`);
-    return { Semantic: '0.4.0', Major: '0', Minor: '4', Patch: '0' };
+    return { Semantic: "0.4.0", Major: "0", Minor: "4", Patch: "0" };
   }
 }
 
 //* GET Functions
 // Generic function for API GET calls
-async function getAPICall<T = any>(endpoint: string, token: string): Promise<MachineQResponse<T>> {
+async function getAPICall<T = any>(
+  endpoint: string,
+  token: string,
+): Promise<MachineQResponse<T>> {
   const finalUrl = `${MQ_CONFIG.apiUrl}/${endpoint}`;
   const headers = { ...DEFAULT_HEADERS, Authorization: token };
 
@@ -93,7 +99,6 @@ async function getAPICall<T = any>(endpoint: string, token: string): Promise<Mac
 }
 
 // Get devices
-<<<<<<<< HEAD:apps/backend/src/services/mqAPI.ts
 async function getDevices(token: string): Promise<MachineQResponse> {
   return getAPICall("devices", token);
 }
@@ -106,44 +111,24 @@ async function getGateways(token: string): Promise<MachineQResponse> {
 // Get account
 async function getAccount(token: string): Promise<MachineQResponse> {
   return getAPICall("account", token);
-========
-async function getDevices(token) {
-  return getAPICall('devices', token);
-}
-
-// Get gateways
-async function getGateways(token) {
-  return getAPICall('gateways', token);
-}
-
-// Get account
-async function getAccount(token) {
-  return getAPICall('account', token);
->>>>>>>> main:apps/backend/src/services/mqAPI.js
 }
 
 //* POST Functions
 // Create a new device
-async function createDevice(token: string, deviceData: DeviceData): Promise<MachineQResponse> {
+async function createDevice(
+  token: string,
+  deviceData: DeviceData,
+): Promise<MachineQResponse> {
   const finalUrl = `${MQ_CONFIG.apiUrl}/devices`;
   const headers = { ...DEFAULT_HEADERS, Authorization: token };
 
   // Provide default values for required fields if not provided
-<<<<<<<< HEAD:apps/backend/src/services/mqAPI.ts
   const defaultDeviceData: DeviceData = {
     ActivationType: "OTAA",
     ServiceProfile: "UyLtjJAT",
     DeviceProfile: "zsi0h2lg",
     DecoderType: "Nez4HkZe",
     OutputProfile: "VvvcmU0o",
-========
-  const defaultDeviceData = {
-    ActivationType: 'OTAA',
-    ServiceProfile: 'UyLtjJAT',
-    DeviceProfile: 'zsi0h2lg',
-    DecoderType: 'Nez4HkZe',
-    OutputProfile: 'VvvcmU0o',
->>>>>>>> main:apps/backend/src/services/mqAPI.js
     PrivateData: false,
   };
 
@@ -152,7 +137,7 @@ async function createDevice(token: string, deviceData: DeviceData): Promise<Mach
 
   try {
     const response = await fetch(finalUrl, {
-      method: 'POST',
+      method: "POST",
       headers,
       body: JSON.stringify(finalDeviceData),
     });

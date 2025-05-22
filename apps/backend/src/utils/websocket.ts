@@ -1,13 +1,8 @@
-<<<<<<<< HEAD:apps/backend/src/utils/websocket.ts
 // backend/src/utils/websocket.ts
 import { WebSocketServer, WebSocket } from "ws";
 import { Server } from "http";
 import { analysisService } from "services/analysisService.js";
 import { WebSocketMessage, WebSocketMessageType } from "types/index.js";
-========
-// backend/src/utils/websocket.js
-const WebSocket = require('ws');
->>>>>>>> main:apps/backend/src/utils/websocket.js
 
 let wss: WebSocketServer | null = null;
 const clients: Set<WebSocket> = new Set();
@@ -15,53 +10,44 @@ const clients: Set<WebSocket> = new Set();
 function setupWebSocket(server: Server): WebSocketServer {
   // Ensure we don't create multiple WebSocket servers
   if (wss !== null) {
-    console.warn('WebSocket server already exists');
+    console.warn("WebSocket server already exists");
     return wss;
   }
 
   wss = new WebSocketServer({
     server,
-    path: '/ws',
+    path: "/ws",
     clientTracking: true,
   });
 
-  console.log('Setting up WebSocket server');
+  console.log("Setting up WebSocket server");
 
-<<<<<<<< HEAD:apps/backend/src/utils/websocket.ts
   wss.on("connection", async (ws: WebSocket) => {
     console.log("New WebSocket connection established");
     clients.add(ws);
 
     try {
-========
-  wss.on('connection', async (ws) => {
-    console.log('New WebSocket connection established');
-    clients.add(ws);
-
-    try {
-      const { analysisService } = require('../services/analysisService');
->>>>>>>> main:apps/backend/src/utils/websocket.js
       const analyses = await analysisService.getRunningAnalyses();
 
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(
           JSON.stringify({
-            type: 'init',
+            type: "init",
             analyses,
           }),
         );
       }
     } catch (error) {
-      console.error('Error sending initial state:', error);
+      console.error("Error sending initial state:", error);
     }
 
-    ws.on('close', () => {
-      console.log('WebSocket connection closed');
+    ws.on("close", () => {
+      console.log("WebSocket connection closed");
       clients.delete(ws);
     });
 
-    ws.on('error', (error) => {
-      console.error('WebSocket connection error:', error);
+    ws.on("error", (error) => {
+      console.error("WebSocket connection error:", error);
       clients.delete(ws);
     });
   });
@@ -81,14 +67,11 @@ function broadcastUpdate<T = any>(type: WebSocketMessageType, data: T): void {
       try {
         client.send(messageStr);
       } catch (error) {
-        console.error('Error broadcasting to client:', error);
+        console.error("Error broadcasting to client:", error);
         clients.delete(client);
       }
     }
   });
 }
 
-export {
-  setupWebSocket,
-  broadcastUpdate,
-};
+export { setupWebSocket, broadcastUpdate };

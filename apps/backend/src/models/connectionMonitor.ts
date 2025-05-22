@@ -5,7 +5,10 @@ interface MonitorService {
   addLog: (fileName: string, message: string) => Promise<void>;
   stopAnalysis: (fileName: string) => Promise<any>;
   runAnalysis: (fileName: string, type: string) => Promise<any>;
-  updateConnectionState: (fileName: string, state: ConnectionState) => Promise<void>;
+  updateConnectionState: (
+    fileName: string,
+    state: ConnectionState,
+  ) => Promise<void>;
   getProcessStatus: (fileName: string) => string;
   getConfig: () => Record<string, any>;
 }
@@ -46,7 +49,7 @@ export default class ConnectionMonitor implements IConnectionMonitor {
         // Connection restored
         await this.analysisService.addLog(
           this.fileName,
-          'Connection restored, checking process state...',
+          "Connection restored, checking process state...",
         );
         this.connectionState.history.lastRestored = currentTime;
         this.connectionState.disconnectedAt = null;
@@ -54,7 +57,7 @@ export default class ConnectionMonitor implements IConnectionMonitor {
         if (this.reconnectTimeout) {
           clearTimeout(this.reconnectTimeout);
         }
-        
+
         this.reconnectTimeout = setTimeout(async () => {
           try {
             // Check if process should restart - for debugging
@@ -78,7 +81,7 @@ export default class ConnectionMonitor implements IConnectionMonitor {
             ) {
               await this.analysisService.addLog(
                 this.fileName,
-                'Restarting process based on saved state...',
+                "Restarting process based on saved state...",
               );
               await this.analysisService.runAnalysis(this.fileName, this.type);
               this.connectionState.shouldRestart = false;
@@ -100,7 +103,7 @@ export default class ConnectionMonitor implements IConnectionMonitor {
         // Connection lost
         await this.analysisService.addLog(
           this.fileName,
-          'Connection lost, saving process state...',
+          "Connection lost, saving process state...",
         );
 
         try {
@@ -108,7 +111,7 @@ export default class ConnectionMonitor implements IConnectionMonitor {
           const processStatus = await this.analysisService.getProcessStatus(
             this.fileName,
           );
-          this.connectionState.wasRunning = processStatus === 'running';
+          this.connectionState.wasRunning = processStatus === "running";
           this.connectionState.shouldRestart = true;
           this.connectionState.disconnectedAt = currentTime;
           this.connectionState.history.lastDisconnected = currentTime;
@@ -143,7 +146,7 @@ export default class ConnectionMonitor implements IConnectionMonitor {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      const response = await fetch('https://api.tago.io/status', {
+      const response = await fetch("https://api.tago.io/status", {
         signal: controller.signal,
       });
 
@@ -175,7 +178,7 @@ export default class ConnectionMonitor implements IConnectionMonitor {
         const connectionStatus = await this.checkConnection();
         await this.handleConnectionChange(connectionStatus);
       } catch (error) {
-        console.error('Error checking connection:', error);
+        console.error("Error checking connection:", error);
         await this.handleConnectionChange(false);
       }
     }, this.checkInterval);

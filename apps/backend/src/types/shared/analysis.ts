@@ -3,7 +3,7 @@
 /**
  * Status options for an analysis
  */
-export type AnalysisStatus = 'running' | 'stopped' | 'updated';
+export type AnalysisStatus = "running" | "stopped" | "updated";
 
 /**
  * Represents an Analysis in the system
@@ -66,7 +66,7 @@ export interface ConnectionState {
 /**
  * Valid time ranges for log retrieval
  */
-export type LogTimeRange = '24h' | '7d' | '30d' | 'all';
+export type LogTimeRange = "1h" | "24h" | "7d" | "30d" | "all";
 
 /**
  * Log download result

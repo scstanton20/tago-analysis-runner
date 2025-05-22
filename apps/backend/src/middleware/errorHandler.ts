@@ -1,11 +1,11 @@
 // backend/src/middleware/errorHandler.ts
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from "express";
 
 export default function errorHandler(
-  err: Error, 
-  _req: Request, 
-  res: Response, 
-  _next: NextFunction
+  err: Error,
+  _req: Request,
+  res: Response,
+  _next: NextFunction,
 ): void {
   console.error(err.stack);
   res.status(500).json({
