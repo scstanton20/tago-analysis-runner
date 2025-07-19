@@ -1,6 +1,10 @@
 // backend/src/routes/sseRoutes.js
 import express from 'express';
-import { authenticateSSE, handleSSEConnection } from '../utils/sse.js';
+import {
+  authenticateSSE,
+  handleSSEConnection,
+  sseManager,
+} from '../utils/sse.js';
 
 const router = express.Router();
 
@@ -101,5 +105,25 @@ const router = express.Router();
  *                   error: "Invalid user"
  */
 router.get('/events', authenticateSSE, handleSSEConnection);
+
+// Logout notification endpoint - notifies other sessions about logout
+router.post('/logout-notification', authenticateSSE, (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Send SSE logout notification to all user's other sessions
+    sseManager.sendToUser(userId, {
+      type: 'userLogout',
+      userId: userId,
+      timestamp: new Date().toISOString(),
+    });
+
+    console.log(`Sent logout notification to user ${userId}`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Logout notification error:', error);
+    res.status(500).json({ error: 'Failed to send logout notification' });
+  }
+});
 
 export default router;

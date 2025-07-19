@@ -1,4 +1,4 @@
-// frontend/src/components/departmentalSidebar.jsx
+// frontend/src/components/teamSidebar.jsx
 import { useState, useMemo } from 'react';
 import {
   DndContext,
@@ -38,20 +38,15 @@ import {
   IconUsers,
   IconUserCog,
 } from '@tabler/icons-react';
-import DepartmentManagementModal from './modals/departmentManagementModal';
+import TeamManagementModal from './modals/teamManagementModal';
 import UserManagementModal from './modals/userManagementModal';
 import ProfileModal from './modals/profileModal';
-import { departmentService } from '../services/departmentService';
-import { useAuth } from '../hooks/useAuth';
+import { teamService } from '../services/teamService';
+import { useAuth } from '../contexts/AuthProvider';
 import { usePermissions } from '../hooks/usePermissions';
 
-// Sortable Department Item
-const SortableDepartmentItem = ({
-  department,
-  isSelected,
-  onClick,
-  analysisCount,
-}) => {
+// Sortable Team Item
+const SortableTeamItem = ({ team, isSelected, onClick, analysisCount }) => {
   const {
     attributes,
     listeners,
@@ -60,8 +55,8 @@ const SortableDepartmentItem = ({
     transition,
     isDragging,
   } = useSortable({
-    id: department.id,
-    disabled: department.isSystem,
+    id: team.id,
+    disabled: team.isSystem,
   });
 
   const style = {
@@ -75,11 +70,11 @@ const SortableDepartmentItem = ({
       ref={setNodeRef}
       style={style}
       onMouseEnter={(e) => {
-        const handle = e.currentTarget.querySelector('.department-drag-handle');
+        const handle = e.currentTarget.querySelector('.team-drag-handle');
         if (handle) handle.style.opacity = '1';
       }}
       onMouseLeave={(e) => {
-        const handle = e.currentTarget.querySelector('.department-drag-handle');
+        const handle = e.currentTarget.querySelector('.team-drag-handle');
         if (handle) handle.style.opacity = '0';
       }}
     >
@@ -96,12 +91,12 @@ const SortableDepartmentItem = ({
               lineHeight: 1.3,
             }}
           >
-            {department.name}
+            {team.name}
           </Text>
         }
         leftSection={
           <Group gap={6}>
-            <ColorSwatch color={department.color} size={16} />
+            <ColorSwatch color={team.color} size={16} />
             <IconFolder size={18} />
           </Group>
         }
@@ -114,11 +109,11 @@ const SortableDepartmentItem = ({
             >
               {analysisCount}
             </Badge>
-            {!department.isSystem && (
+            {!team.isSystem && (
               <Box
                 {...attributes}
                 {...listeners}
-                className="department-drag-handle"
+                className="team-drag-handle"
                 style={{
                   cursor: 'grab',
                   opacity: 0,
@@ -141,7 +136,7 @@ const SortableDepartmentItem = ({
             borderRadius: 'var(--mantine-radius-md)',
             marginBottom: 4,
             minHeight: 44,
-            cursor: department.isSystem ? 'pointer' : 'default', // Different cursor for system departments
+            cursor: team.isSystem ? 'pointer' : 'default', // Different cursor for system teams
             '&[dataActive]': {
               background:
                 'linear-gradient(135deg, var(--mantine-color-brand-1) 0%, var(--mantine-color-accent-1) 100%)',
@@ -150,7 +145,7 @@ const SortableDepartmentItem = ({
               fontWeight: 500,
             },
             '&:hover': {
-              '& .department-drag-handle': {
+              '& .team-drag-handle': {
                 opacity: 1,
               },
             },
@@ -169,59 +164,65 @@ const SortableDepartmentItem = ({
   );
 };
 
-// Main Departmental Sidebar Component
-export default function DepartmentalSidebar({
-  selectedDepartment,
-  onDepartmentSelect,
-}) {
-  const { departments, getDepartmentAnalysisCount } = useSSE();
+// Main Team Sidebar Component
+export default function TeamSidebar({ selectedTeam, onTeamSelect }) {
+  const { teams, getTeamAnalysisCount } = useSSE();
   const { user, logout, isAdmin } = useAuth();
-  const { canAccessDepartment, isAdmin: hasAdminPerms } = usePermissions();
+  const { canAccessTeam, isAdmin: hasAdminPerms } = usePermissions();
 
   const [showManageModal, setShowManageModal] = useState(false);
   const [showUserModal, setShowUserModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [draggedAnalysis, setDraggedAnalysis] = useState(null);
-  const [activeDeptId, setActiveDeptId] = useState(null);
+  const [activeTeamId, setActiveTeamId] = useState(null);
 
-  // Convert departments object to sorted array for display, filtered by user access (memoized)
-  const departmentsArray = useMemo(() => {
-    const allDepts = Object.values(departments).sort(
-      (a, b) => a.order - b.order,
-    );
+  // Convert teams object to sorted array for display, filtered by user access (memoized)
+  const teamsArray = useMemo(() => {
+    const allTeams = Object.values(teams).sort((a, b) => {
+      // Always put uncategorized (system) teams first
+      if (a.isSystem && !b.isSystem) return -1;
+      if (!a.isSystem && b.isSystem) return 1;
 
-    // If user is admin, return all departments
+      // If both are system teams or both are not, sort by order_index then name
+      if (a.order_index !== b.order_index) {
+        return (a.order_index || 0) - (b.order_index || 0);
+      }
+
+      return a.name.localeCompare(b.name);
+    });
+
+    // If user is admin, return all teams
     if (hasAdminPerms) {
-      return allDepts;
+      return allTeams;
     }
 
-    // For non-admin users, filter departments based on permissions
-    return allDepts.filter((dept) => {
-      // Always show system departments if they have analyses (they are shown regardless of permissions)
-      if (dept.isSystem) {
-        return true; // System department visibility is handled elsewhere
+    // For non-admin users, filter teams based on permissions
+    return allTeams.filter((team) => {
+      // Always show system teams if they have analyses (they are shown regardless of permissions)
+      if (team.isSystem) {
+        return true; // System team visibility is handled elsewhere
       }
-      // For custom departments, check if user has access
-      return canAccessDepartment(dept.id);
+      // For custom teams, check if user has access
+      return canAccessTeam(team.id);
     });
-  }, [departments, hasAdminPerms, canAccessDepartment]);
+  }, [teams, hasAdminPerms, canAccessTeam]);
 
   // Use the efficient count function from WebSocket hook
-  const getAnalysisCount = (deptId) => {
-    return getDepartmentAnalysisCount(deptId);
+  const getAnalysisCount = (teamId) => {
+    return getTeamAnalysisCount(teamId);
   };
 
-  const handleDepartmentClick = (deptId) => {
-    onDepartmentSelect?.(deptId);
+  const handleTeamClick = (teamId) => {
+    onTeamSelect?.(teamId);
   };
 
-  const handleAnalysisDrop = async (e, deptId) => {
+  const handleAnalysisDrop = async (e, teamId) => {
     e.preventDefault();
     if (!draggedAnalysis) return;
 
     try {
-      await departmentService.moveAnalysisToDepartment(draggedAnalysis, deptId);
-      console.log(`Moved analysis ${draggedAnalysis} to department ${deptId}`);
+      await teamService.moveAnalysisToTeam(draggedAnalysis, teamId);
+      console.log(`Moved analysis ${draggedAnalysis} to team ${teamId}`);
     } catch (error) {
       console.error('Error moving analysis:', error);
     }
@@ -233,20 +234,20 @@ export default function DepartmentalSidebar({
     const { active, over } = event;
 
     if (active.id !== over?.id) {
-      const oldIndex = departmentsArray.findIndex((d) => d.id === active.id);
-      const newIndex = departmentsArray.findIndex((d) => d.id === over.id);
+      const oldIndex = teamsArray.findIndex((t) => t.id === active.id);
+      const newIndex = teamsArray.findIndex((t) => t.id === over.id);
 
       if (oldIndex !== -1 && newIndex !== -1) {
-        const newOrder = arrayMove(departmentsArray, oldIndex, newIndex);
+        const newOrder = arrayMove(teamsArray, oldIndex, newIndex);
 
         try {
-          await departmentService.reorderDepartments(newOrder.map((d) => d.id));
+          await teamService.reorderTeams(newOrder.map((t) => t.id));
         } catch (error) {
-          console.error('Error reordering departments:', error);
+          console.error('Error reordering teams:', error);
         }
       }
     }
-    setActiveDeptId(null);
+    setActiveTeamId(null);
   };
 
   const sensors = useSensors(
@@ -268,26 +269,24 @@ export default function DepartmentalSidebar({
       >
         <Group justify="space-between">
           <Text fw={600} size="xl" c="brand.8">
-            Departments
+            Teams
           </Text>
         </Group>
 
         <Group mt="md" gap="xs">
           <Button
-            variant={!selectedDepartment ? 'gradient' : 'default'}
+            variant={!selectedTeam ? 'gradient' : 'default'}
             gradient={
-              !selectedDepartment
-                ? { from: 'brand.6', to: 'accent.6' }
-                : undefined
+              !selectedTeam ? { from: 'brand.6', to: 'accent.6' } : undefined
             }
             size="xs"
             style={{ flex: 1 }}
-            onClick={() => handleDepartmentClick(null)}
+            onClick={() => handleTeamClick(null)}
           >
             All Analyses
           </Button>
           {hasAdminPerms && (
-            <Tooltip label="Manage departments">
+            <Tooltip label="Manage teams">
               <ActionIcon
                 variant="light"
                 color="brand"
@@ -298,7 +297,7 @@ export default function DepartmentalSidebar({
               </ActionIcon>
             </Tooltip>
           )}
-          {isAdmin() && (
+          {isAdmin && (
             <Tooltip label="Manage users">
               <ActionIcon
                 variant="light"
@@ -313,36 +312,36 @@ export default function DepartmentalSidebar({
         </Group>
       </Box>
 
-      {/* Department List */}
+      {/* Team List */}
       <ScrollArea style={{ flex: 1 }} p="md">
         <Stack gap="xs">
-          {departmentsArray.length === 0 ? (
+          {teamsArray.length === 0 ? (
             <Text c="dimmed" size="sm" ta="center" py="md">
-              Loading departments...
+              Loading teams...
             </Text>
           ) : (
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
               onDragEnd={handleDragEnd}
-              onDragStart={(event) => setActiveDeptId(event.active.id)}
+              onDragStart={(event) => setActiveTeamId(event.active.id)}
             >
               <SortableContext
-                items={departmentsArray.map((d) => d.id)}
+                items={teamsArray.map((t) => t.id)}
                 strategy={verticalListSortingStrategy}
               >
-                {departmentsArray
-                  .filter((dept) => {
-                    // Hide system departments if they have no analyses
-                    if (dept.isSystem) {
-                      return getAnalysisCount(dept.id) > 0;
+                {teamsArray
+                  .filter((team) => {
+                    // Hide system teams if they have no analyses
+                    if (team.isSystem) {
+                      return getAnalysisCount(team.id) > 0;
                     }
-                    return true; // Show all non-system departments regardless of count
+                    return true; // Show all non-system teams regardless of count
                   })
-                  .map((dept) => (
+                  .map((team) => (
                     <div
-                      key={dept.id}
-                      onDrop={(e) => handleAnalysisDrop(e, dept.id)}
+                      key={team.id}
+                      onDrop={(e) => handleAnalysisDrop(e, team.id)}
                       onDragOver={(e) => e.preventDefault()}
                       style={{
                         borderRadius: 'var(--mantine-radius-md)',
@@ -352,25 +351,23 @@ export default function DepartmentalSidebar({
                         outlineOffset: '2px',
                       }}
                     >
-                      <SortableDepartmentItem
-                        department={dept}
-                        isSelected={selectedDepartment === dept.id}
-                        onClick={() => handleDepartmentClick(dept.id)}
-                        analysisCount={getAnalysisCount(dept.id)}
+                      <SortableTeamItem
+                        team={team}
+                        isSelected={selectedTeam === team.id}
+                        onClick={() => handleTeamClick(team.id)}
+                        analysisCount={getAnalysisCount(team.id)}
                       />
                     </div>
                   ))}
               </SortableContext>
               <DragOverlay>
-                {activeDeptId ? (
+                {activeTeamId ? (
                   <Box style={{ opacity: 0.8 }}>
-                    <SortableDepartmentItem
-                      department={departmentsArray.find(
-                        (d) => d.id === activeDeptId,
-                      )}
+                    <SortableTeamItem
+                      team={teamsArray.find((t) => t.id === activeTeamId)}
                       isSelected={false}
                       onClick={() => {}}
-                      analysisCount={getAnalysisCount(activeDeptId)}
+                      analysisCount={getAnalysisCount(activeTeamId)}
                     />
                   </Box>
                 ) : null}
@@ -426,11 +423,11 @@ export default function DepartmentalSidebar({
         </Group>
       </Box>
 
-      {/* Department Management Modal */}
-      <DepartmentManagementModal
+      {/* Team Management Modal */}
+      <TeamManagementModal
         opened={showManageModal}
         onClose={() => setShowManageModal(false)}
-        departments={departments}
+        teams={teams}
       />
 
       {/* User Management Modal */}

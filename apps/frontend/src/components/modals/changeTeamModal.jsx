@@ -1,4 +1,4 @@
-// frontend/src/components/analysis/departmentSelectModal.jsx
+// frontend/src/components/analysis/teamSelectModal.jsx
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 import {
@@ -15,44 +15,38 @@ import {
 } from '@mantine/core';
 import { IconFolder, IconCheck, IconInfoCircle } from '@tabler/icons-react';
 
-const ChangeDepartmentModal = ({
+const ChangeTeamModal = ({
   isOpen,
   onClose,
   onSelect,
-  departments,
-  currentDepartment,
+  teams,
+  currentTeam,
   analysisName,
 }) => {
-  const [selectedDepartment, setSelectedDepartment] =
-    useState(currentDepartment);
+  const [selectedTeam, setSelectedTeam] = useState(currentTeam);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    if (selectedDepartment === currentDepartment) {
+    if (selectedTeam === currentTeam) {
       onClose();
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await onSelect(selectedDepartment);
+      await onSelect(selectedTeam);
     } catch (error) {
-      console.error('Error changing department:', error);
+      console.error('Error changing team:', error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <Modal
-      opened={isOpen}
-      onClose={onClose}
-      title="Change Department"
-      size="md"
-    >
+    <Modal opened={isOpen} onClose={onClose} title="Change Team" size="md">
       <Stack>
         <Text size="sm" c="dimmed">
-          Select a new department for{' '}
+          Select a new team for{' '}
           <Text span fw={600}>
             {analysisName}
           </Text>
@@ -61,34 +55,34 @@ const ChangeDepartmentModal = ({
 
         <ScrollArea h={300} offsetScrollbars>
           <Stack gap="xs">
-            {[...departments]
+            {[...teams]
               .sort((a, b) => a.order - b.order)
-              .map((department) => (
+              .map((team) => (
                 <UnstyledButton
-                  key={department.id}
-                  onClick={() => setSelectedDepartment(department.id)}
+                  key={team.id}
+                  onClick={() => setSelectedTeam(team.id)}
                   p="sm"
-                  mod={{ selected: selectedDepartment === department.id }}
+                  mod={{ selected: selectedTeam === team.id }}
                   styles={{
                     root: {
                       border: `2px solid ${
-                        selectedDepartment === department.id
+                        selectedTeam === team.id
                           ? 'var(--mantine-color-blue-filled)'
                           : 'var(--mantine-color-default-border)'
                       }`,
                       borderRadius: 'var(--mantine-radius-md)',
                       backgroundColor:
-                        selectedDepartment === department.id
+                        selectedTeam === team.id
                           ? 'var(--mantine-color-blue-light)'
                           : 'transparent',
                       transition: 'all 200ms ease',
                       '&:hover': {
                         borderColor:
-                          selectedDepartment === department.id
+                          selectedTeam === team.id
                             ? 'var(--mantine-color-blue-filled-hover)'
                             : 'var(--mantine-color-gray-filled)',
                         backgroundColor:
-                          selectedDepartment === department.id
+                          selectedTeam === team.id
                             ? 'var(--mantine-color-blue-light-hover)'
                             : 'var(--mantine-color-gray-light)',
                       },
@@ -97,20 +91,20 @@ const ChangeDepartmentModal = ({
                 >
                   <Group justify="space-between" wrap="nowrap">
                     <Group gap="sm">
-                      <ColorSwatch color={department.color} size={20} />
+                      <ColorSwatch color={team.color} size={20} />
                       <IconFolder size={20} />
                       <Text size="sm" fw={500}>
-                        {department.name}
+                        {team.name}
                       </Text>
                     </Group>
                     <Group gap="xs">
-                      {selectedDepartment === department.id && (
+                      {selectedTeam === team.id && (
                         <IconCheck
                           size={16}
                           color="var(--mantine-color-blue-6)"
                         />
                       )}
-                      {currentDepartment === department.id && (
+                      {currentTeam === team.id && (
                         <Badge size="xs" variant="light">
                           Current
                         </Badge>
@@ -129,13 +123,13 @@ const ChangeDepartmentModal = ({
           <Button
             onClick={handleSubmit}
             loading={isSubmitting}
-            disabled={selectedDepartment === currentDepartment}
+            disabled={selectedTeam === currentTeam}
           >
             Move Analysis
           </Button>
         </Group>
 
-        {selectedDepartment !== currentDepartment && (
+        {selectedTeam !== currentTeam && (
           <Alert
             icon={<IconInfoCircle size={16} />}
             color="blue"
@@ -143,7 +137,7 @@ const ChangeDepartmentModal = ({
           >
             This will move the analysis to{' '}
             <Text span fw={600}>
-              {[...departments].find((d) => d.id === selectedDepartment)?.name}
+              {[...teams].find((d) => d.id === selectedTeam)?.name}
             </Text>
             . The change will be visible to all users.
           </Alert>
@@ -153,11 +147,11 @@ const ChangeDepartmentModal = ({
   );
 };
 
-ChangeDepartmentModal.propTypes = {
+ChangeTeamModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   onSelect: PropTypes.func.isRequired,
-  departments: PropTypes.arrayOf(
+  teams: PropTypes.arrayOf(
     PropTypes.shape({
       id: PropTypes.string.isRequired,
       name: PropTypes.string.isRequired,
@@ -165,8 +159,8 @@ ChangeDepartmentModal.propTypes = {
       order: PropTypes.number.isRequired,
     }),
   ).isRequired,
-  currentDepartment: PropTypes.string,
+  currentTeam: PropTypes.string,
   analysisName: PropTypes.string.isRequired,
 };
 
-export default ChangeDepartmentModal;
+export default ChangeTeamModal;

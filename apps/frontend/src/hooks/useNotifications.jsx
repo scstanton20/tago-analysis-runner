@@ -161,27 +161,52 @@ export const useNotifications = () => {
         successIcon: <IconCheck size={16} />,
       }),
 
-    // Department operations
+    // Team operations
+    createTeam: (promise, teamName) =>
+      executeWithNotification(promise, {
+        loading: `Creating team ${teamName}...`,
+        success: `Team ${teamName} created successfully.`,
+        loadingIcon: <IconBuilding size={16} />,
+        successIcon: <IconCheck size={16} />,
+      }),
+
+    updateTeam: (promise, teamName) =>
+      executeWithNotification(promise, {
+        loading: `Updating team ${teamName}...`,
+        success: `Team ${teamName} updated successfully.`,
+        loadingIcon: <IconSettings size={16} />,
+        successIcon: <IconCheck size={16} />,
+      }),
+
+    deleteTeam: (promise, teamName) =>
+      executeWithNotification(promise, {
+        loading: `Deleting team ${teamName}...`,
+        success: `Team ${teamName} deleted successfully.`,
+        loadingIcon: <IconTrash size={16} />,
+        successIcon: <IconCheck size={16} />,
+      }),
+
+    // Legacy department operations (for backward compatibility)
     createDepartment: (promise, departmentName) =>
       executeWithNotification(promise, {
-        loading: `Creating department ${departmentName}...`,
-        success: `Department ${departmentName} created successfully.`,
+        loading: `Creating team ${departmentName}...`,
+        success: `Team ${departmentName} created successfully.`,
         loadingIcon: <IconBuilding size={16} />,
         successIcon: <IconCheck size={16} />,
       }),
 
     updateDepartment: (promise, departmentName) =>
       executeWithNotification(promise, {
-        loading: `Updating department ${departmentName}...`,
-        success: `Department ${departmentName} updated successfully.`,
+        loading: `Updating team ${departmentName}...`,
+        success: `Team ${departmentName} updated successfully.`,
         loadingIcon: <IconSettings size={16} />,
         successIcon: <IconCheck size={16} />,
       }),
 
     deleteDepartment: (promise, departmentName) =>
       executeWithNotification(promise, {
-        loading: `Deleting department ${departmentName}...`,
-        success: `Department ${departmentName} deleted successfully.`,
+        loading: `Deleting team ${departmentName}...`,
+        success: `Team ${departmentName} deleted successfully.`,
         loadingIcon: <IconTrash size={16} />,
         successIcon: <IconCheck size={16} />,
       }),
@@ -218,8 +243,14 @@ export const useNotifications = () => {
     });
   };
 
+  // Main showNotification function for direct access
+  const showNotification = (options) => {
+    notifications.show(options);
+  };
+
   return {
     executeWithNotification,
+    showNotification,
     ...presets,
     success,
     error,

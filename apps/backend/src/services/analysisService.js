@@ -3,7 +3,7 @@ import { promises as fs } from 'fs';
 import config from '../config/default.js';
 import { encrypt, decrypt } from '../utils/cryptoUtils.js';
 import AnalysisProcess from '../models/analysisProcess.js';
-import departmentService from './departmentService.js';
+import teamService from './teamService.js';
 
 /**
  * Format file size in bytes to human readable format
@@ -66,7 +66,6 @@ class AnalysisService {
    *
    * @param {Object} config - Configuration object to update
    * @param {string} config.version - Configuration version
-   * @param {Object} config.departments - Departments configuration
    * @param {Object} config.analyses - Analyses configuration with updated properties
    * @returns {Promise<void>}
    * @throws {Error} If config update fails
@@ -81,7 +80,7 @@ class AnalysisService {
           analysis.enabled = config.analyses[name].enabled;
           analysis.status = config.analyses[name].status;
           analysis.lastStartTime = config.analyses[name].lastStartTime;
-          analysis.department = config.analyses[name].department;
+          analysis.teamId = config.analyses[name].teamId;
         }
       });
 
@@ -109,8 +108,7 @@ class AnalysisService {
    */
   async saveConfig() {
     const configuration = {
-      version: this.configCache?.version || '2.0',
-      departments: this.configCache?.departments || {},
+      version: this.configCache?.version || '3.0',
       analyses: {},
     };
 
@@ -120,7 +118,7 @@ class AnalysisService {
         enabled: analysis.enabled,
         status: analysis.status,
         lastStartTime: analysis.lastStartTime,
-        department: analysis.department || 'uncategorized',
+        teamId: analysis.teamId,
       };
     });
 
@@ -156,17 +154,7 @@ class AnalysisService {
       if (error.code === 'ENOENT') {
         console.log('No existing config file, creating new one');
         this.configCache = {
-          version: '2.0',
-          departments: {
-            uncategorized: {
-              id: 'uncategorized',
-              name: 'Uncategorized',
-              color: '#9ca3af',
-              order: 0,
-              created: new Date().toISOString(),
-              isSystem: true,
-            },
-          },
+          version: '3.0',
           analyses: {},
         };
         await this.saveConfig();
@@ -212,8 +200,8 @@ class AnalysisService {
     await file.mv(filePath);
     const analysis = new AnalysisProcess(analysisName, type, this);
 
-    // FIXED: If no department specified (null) or "all analyses" selected, use uncategorized
-    analysis.department = targetDepartment || 'uncategorized';
+    // Always set team ID - use 'uncategorized' as default if not specified
+    analysis.teamId = targetDepartment || 'uncategorized';
 
     this.analyses.set(analysisName, analysis);
 
@@ -226,7 +214,7 @@ class AnalysisService {
     await this.initializeVersionManagement(analysisName);
 
     // Ensure department tracking
-    await departmentService.ensureAnalysisHasDepartment(analysisName);
+    await teamService.ensureAnalysisHasTeam(analysisName);
 
     return { analysisName };
   }
@@ -304,7 +292,7 @@ class AnalysisService {
             status: analysis?.status || 'stopped',
             enabled: analysis?.enabled || false,
             lastStartTime: analysis?.lastStartTime,
-            department: analysis?.department || 'uncategorized',
+            teamId: analysis?.teamId,
           };
         } catch (error) {
           if (error.code === 'ENOENT') return null;
@@ -384,7 +372,7 @@ class AnalysisService {
       await this.saveConfig();
 
       // Update department tracking properly through the department service
-      await departmentService.ensureAnalysisHasDepartment(newFileName);
+      await teamService.ensureAnalysisHasTeam(newFileName);
 
       // If it was running before, restart it
       if (wasRunning) {
@@ -650,7 +638,7 @@ class AnalysisService {
     const configuration = await this.loadConfig();
 
     // Initialize department service after config is loaded
-    await departmentService.initialize(this);
+    await teamService.initialize(this);
 
     const analysisDirectories = await fs.readdir(config.paths.analysis);
     await Promise.all(
@@ -970,7 +958,7 @@ class AnalysisService {
    * @param {string} analysisName - Name of the analysis to update
    * @param {Object} updates - Updates to apply
    * @param {string} [updates.content] - New content for the analysis file
-   * @param {string} [updates.department] - New department for the analysis
+   * @param {string} [updates.teamId] - New team for the analysis
    * @param {boolean} [updates.enabled] - Enable/disable status
    * @returns {Promise<Object>} Update result with success status and restart info
    * @throws {Error} If analysis not found, department invalid, or update fails
@@ -983,11 +971,11 @@ class AnalysisService {
         throw new Error(`Analysis ${analysisName} not found`);
       }
 
-      // If department is being updated, validate it exists
-      if (updates.department) {
-        const dept = await departmentService.getDepartment(updates.department);
-        if (!dept) {
-          throw new Error(`Department ${updates.department} not found`);
+      // If team is being updated, validate it exists
+      if (updates.teamId) {
+        const team = await teamService.getTeam(updates.teamId);
+        if (!team) {
+          throw new Error(`Team ${updates.teamId} not found`);
         }
       }
 
@@ -1226,7 +1214,7 @@ class AnalysisService {
    * @param {boolean} [analysisConfig.enabled=false] - Whether analysis is enabled
    * @param {string} [analysisConfig.status='stopped'] - Current status
    * @param {string|null} [analysisConfig.lastStartTime=null] - Last start timestamp
-   * @param {string} [analysisConfig.department='uncategorized'] - Department assignment
+   * @param {string} [analysisConfig.teamId] - Team assignment
    * @returns {Promise<void>}
    */
   async initializeAnalysis(analysisName, analysisConfig = {}) {
@@ -1235,7 +1223,7 @@ class AnalysisService {
       enabled: false,
       status: 'stopped',
       lastStartTime: null,
-      department: 'uncategorized',
+      teamId: null, // Will be set to Uncategorized team if not specified
     };
 
     const fullConfig = { ...defaultConfig, ...analysisConfig };
@@ -1245,7 +1233,7 @@ class AnalysisService {
       enabled: fullConfig.enabled,
       status: fullConfig.status,
       lastStartTime: fullConfig.lastStartTime,
-      department: fullConfig.department,
+      teamId: fullConfig.teamId,
     });
 
     // Initialize log state (this replaces the old log loading logic)

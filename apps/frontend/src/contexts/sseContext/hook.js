@@ -12,7 +12,7 @@ export function useSSE() {
   return {
     // Core state
     analyses: context.analyses || {},
-    departments: context.departments || {},
+    teams: context.teams || {},
 
     // Connection state
     connectionStatus: context.connectionStatus || 'connecting',
@@ -29,22 +29,22 @@ export function useSSE() {
 
     // Utility functions for object-based operations
     getAnalysis: (name) => context.analyses?.[name] || null,
-    getDepartment: (id) => context.departments?.[id] || null,
+    getTeam: (id) => context.teams?.[id] || null,
 
-    getAnalysesByDepartment: (departmentId) => {
+    getAnalysesByTeam: (teamId) => {
       if (!context.analyses) return [];
       return Object.values(context.analyses).filter(
-        (analysis) => analysis.department === departmentId,
+        (analysis) => analysis.teamId === teamId,
       );
     },
 
     getAnalysisCount: () =>
       context.analyses ? Object.keys(context.analyses).length : 0,
 
-    getDepartmentAnalysisCount: (departmentId) => {
+    getTeamAnalysisCount: (teamId) => {
       if (!context.analyses) return 0;
       return Object.values(context.analyses).filter(
-        (analysis) => analysis.department === departmentId,
+        (analysis) => analysis.teamId === teamId,
       ).length;
     },
 
@@ -58,8 +58,7 @@ export function useSSE() {
     getAnalysisNames: () =>
       context.analyses ? Object.keys(context.analyses) : [],
 
-    // Helper for getting department names
-    getDepartmentNames: () =>
-      context.departments ? Object.keys(context.departments) : [],
+    // Helper for getting team names
+    getTeamNames: () => (context.teams ? Object.keys(context.teams) : []),
   };
 }

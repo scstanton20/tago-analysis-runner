@@ -17,22 +17,17 @@ import { useDisclosure } from '@mantine/hooks';
 import { IconSun, IconMoon } from '@tabler/icons-react';
 import { useSSE } from './contexts/sseContext';
 import { SSEProvider } from './contexts/sseContext/provider';
-import { AuthProvider } from './contexts/authContext';
-import { useAuth } from './hooks/useAuth';
-import { useIdleTimeout } from './hooks/useIdleTimeout';
-import { usePermissions } from './hooks/usePermissions';
+import { AuthProvider, useAuth } from './contexts/AuthProvider';
 // Lazy load heavy components that make API calls
-const DepartmentalSidebar = lazy(
-  () => import('./components/departmentalSidebar'),
-);
+const TeamSidebar = lazy(() => import('./components/teamSidebar'));
 const AnalysisList = lazy(() => import('./components/analysis/analysisList'));
 const AnalysisCreator = lazy(
   () => import('./components/analysis/uploadAnalysis'),
 );
 import ConnectionStatus from './components/connectionStatus';
 import LoginPage from './components/auth/LoginPage';
-import ForcePasswordChange from './components/auth/PasswordOnboarding';
 import Logo from './components/logo';
+import ImpersonationBanner from './components/ImpersonationBanner';
 
 // Reusable loading overlay component
 function AppLoadingOverlay({ message, submessage, error, showRetry }) {
@@ -73,14 +68,10 @@ function AppLoadingOverlay({ message, submessage, error, showRetry }) {
 }
 
 function AppContent() {
-  const { analyses, departments, getDepartment, connectionStatus } = useSSE();
-  const { canUploadAnalyses, canAccessDepartment, canViewAnalyses, isAdmin } =
-    usePermissions();
+  const { analyses, getTeam, connectionStatus } = useSSE();
+  const { isAdmin } = useAuth();
 
-  // Enable idle timeout for authenticated users
-  useIdleTimeout();
-
-  const [selectedDepartment, setSelectedDepartment] = useState(null);
+  const [selectedTeam, setSelectedTeam] = useState(null);
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
   const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
   const { setColorScheme } = useMantineColorScheme();
@@ -89,59 +80,37 @@ function AppContent() {
   const getFilteredAnalyses = () => {
     // For admins, show all analyses
     if (isAdmin) {
-      if (!selectedDepartment) {
+      if (!selectedTeam) {
         return analyses;
       }
       // Filter by selected department only
       const filteredAnalyses = {};
       Object.entries(analyses).forEach(([name, analysis]) => {
-        if (analysis.department === selectedDepartment) {
+        if (analysis.teamId === selectedTeam) {
           filteredAnalyses[name] = analysis;
         }
       });
       return filteredAnalyses;
     }
 
-    // For non-admin users, filter by department access and file view permission
+    // For non-admin users, show all analyses (simplified for Better Auth)
     const filteredAnalyses = {};
     Object.entries(analyses).forEach(([name, analysis]) => {
-      // First check if user has view_analyses permission
-      if (!canViewAnalyses()) {
-        return; // Skip if no view permission
-      }
-
-      // Allow access if:
-      // 1. User has access to the analysis's department, OR
-      // 2. Analysis is uncategorized (null, undefined, or 'uncategorized')
-      // 3. Analysis has no department set
-      const isUncategorized =
-        !analysis.department || analysis.department === 'uncategorized';
-      const hasDeptAccess = analysis.department
-        ? canAccessDepartment(analysis.department)
-        : false;
-
-      const canAccess = hasDeptAccess || isUncategorized;
-
-      if (canAccess) {
-        // If a specific department is selected, also filter by that
-        // Always show if no department filter is active OR matches the selected department
-        // Also show uncategorized items when showing "All Departments"
-        if (
-          !selectedDepartment ||
-          analysis.department === selectedDepartment ||
-          (selectedDepartment === 'uncategorized' && isUncategorized)
-        ) {
-          filteredAnalyses[name] = analysis;
-        }
+      // Filter by selected department if one is chosen
+      if (
+        !selectedTeam ||
+        analysis.teamId === selectedTeam ||
+        (selectedTeam === 'uncategorized' &&
+          (!analysis.teamId || analysis.teamId === 'uncategorized'))
+      ) {
+        filteredAnalyses[name] = analysis;
       }
     });
     return filteredAnalyses;
   };
 
-  // Get current department using object lookup
-  const currentDepartment = selectedDepartment
-    ? getDepartment(selectedDepartment)
-    : null;
+  // Get current team using object lookup
+  const currentTeam = selectedTeam ? getTeam(selectedTeam) : null;
 
   const connectionFailed = connectionStatus === 'failed';
 
@@ -158,6 +127,7 @@ function AppContent() {
 
   return (
     <>
+      <ImpersonationBanner />
       <AppShell
         header={{ height: 60 }}
         navbar={{
@@ -269,9 +239,9 @@ function AppContent() {
         </AppShell.Header>
 
         <AppShell.Navbar>
-          <DepartmentalSidebar
-            selectedDepartment={selectedDepartment}
-            onDepartmentSelect={setSelectedDepartment}
+          <TeamSidebar
+            selectedTeam={selectedTeam}
+            onTeamSelect={setSelectedTeam}
             opened={desktopOpened}
             onToggle={toggleDesktop}
           />
@@ -282,7 +252,7 @@ function AppContent() {
             background: 'var(--mantine-color-body)',
           }}
         >
-          {canUploadAnalyses() && (
+          {isAdmin && (
             <Suspense
               fallback={
                 <AppLoadingOverlay
@@ -300,8 +270,8 @@ function AppContent() {
               }
             >
               <AnalysisCreator
-                targetDepartment={selectedDepartment}
-                departmentName={currentDepartment?.name || 'All Departments'}
+                targetTeam={selectedTeam}
+                teamName={currentTeam?.name || 'All Teams'}
               />
             </Suspense>
           )}
@@ -323,9 +293,8 @@ function AppContent() {
           >
             <AnalysisList
               analyses={getFilteredAnalyses()}
-              showDepartmentLabels={!selectedDepartment}
-              departments={departments}
-              selectedDepartment={selectedDepartment}
+              showTeamLabels={!selectedTeam}
+              selectedTeam={selectedTeam}
             />
           </Suspense>
         </AppShell.Main>
@@ -353,7 +322,7 @@ export default function App() {
 
 // Router component to conditionally load authenticated vs login components
 function AppRouter() {
-  const { isAuthenticated, user, isLoading } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
 
   // Show loading overlay during initial auth check
   if (isLoading) {
@@ -362,16 +331,6 @@ function AppRouter() {
 
   if (!isAuthenticated) {
     return <LoginPage />;
-  }
-
-  // Check if user must change password
-  if (user?.mustChangePassword) {
-    return (
-      <ForcePasswordChange
-        username={user.username}
-        onSuccess={() => window.location.reload()}
-      />
-    );
   }
 
   // Only load SSE and heavy components when authenticated

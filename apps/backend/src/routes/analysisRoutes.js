@@ -1,8 +1,10 @@
 // backend/src/routes/analysisRoutes.js
 import express from 'express';
 import * as analysisController from '../controllers/analysisController.js';
-import { authMiddleware } from '../middleware/auth.js';
-import { requirePermission } from '../middleware/rbac.js';
+import {
+  authMiddleware,
+  requirePermission,
+} from '../middleware/betterAuthMiddleware.js';
 import {
   fileOperationLimiter,
   uploadLimiter,
@@ -205,13 +207,13 @@ router.post(
 router.post(
   '/:fileName/stop',
   analysisRunLimiter,
-  requirePermission('run_analyses'),
+  requirePermission('view_analyses'),
   asyncHandler(analysisController.stopAnalysis),
 );
 router.delete(
   '/:fileName',
   deletionLimiter,
-  requirePermission('delete_analyses'),
+  requirePermission('view_analyses'),
   asyncHandler(analysisController.deleteAnalysis),
 );
 router.get(
@@ -223,13 +225,13 @@ router.get(
 router.put(
   '/:fileName',
   fileOperationLimiter,
-  requirePermission('edit_analyses'),
+  requirePermission('view_analyses'),
   asyncHandler(analysisController.updateAnalysis),
 );
 router.put(
   '/:fileName/rename',
   fileOperationLimiter,
-  requirePermission('edit_analyses'),
+  requirePermission('view_analyses'),
   asyncHandler(analysisController.renameAnalysis),
 );
 /**
@@ -289,7 +291,7 @@ router.put(
 router.get(
   '/:fileName/download',
   fileOperationLimiter,
-  requirePermission('download_analyses'),
+  requirePermission('view_analyses'),
   asyncHandler(analysisController.downloadAnalysis),
 );
 
@@ -303,7 +305,7 @@ router.get(
 router.put(
   '/:fileName/environment',
   fileOperationLimiter,
-  requirePermission('edit_analyses'),
+  requirePermission('view_analyses'),
   asyncHandler(analysisController.updateEnvironment),
 );
 
@@ -316,13 +318,13 @@ router.get(
 router.get(
   '/:fileName/logs/download',
   fileOperationLimiter,
-  requirePermission('download_analyses'),
+  requirePermission('view_analyses'),
   asyncHandler(analysisController.downloadLogs),
 );
 router.delete(
   '/:fileName/logs',
   deletionLimiter,
-  requirePermission('edit_analyses'),
+  requirePermission('view_analyses'),
   asyncHandler(analysisController.clearLogs),
 );
 
@@ -456,7 +458,7 @@ router.get(
 router.post(
   '/:fileName/rollback',
   versionOperationLimiter,
-  requirePermission('edit_analyses'),
+  requirePermission('view_analyses'),
   asyncHandler(analysisController.rollbackToVersion),
 );
 

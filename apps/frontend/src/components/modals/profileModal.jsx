@@ -28,8 +28,8 @@ import {
   IconTrash,
   IconFingerprint,
 } from '@tabler/icons-react';
-import { useAuth } from '../../hooks/useAuth';
-import { webauthnService } from '../../services/webauthnService';
+import { useAuth } from '../../contexts/AuthProvider';
+import { addPasskey, passkey } from '../../lib/auth';
 import { useNotifications } from '../../hooks/useNotifications.jsx';
 
 export default function ProfileModal({ opened, onClose }) {
@@ -52,7 +52,7 @@ export default function ProfileModal({ opened, onClose }) {
   const [passkeysLoading, setPasskeysLoading] = useState(false);
   const [passkeysError, setPasskeysError] = useState('');
   const [registeringPasskey, setRegisteringPasskey] = useState(false);
-  const [isWebAuthnSupported, setIsWebAuthnSupported] = useState(false);
+  const [isWebAuthnSupported, setIsWebAuthnSupported] = useState(true);
   const [activeTab, setActiveTab] = useState('profile');
 
   const passwordForm = useForm({
@@ -86,11 +86,11 @@ export default function ProfileModal({ opened, onClose }) {
 
   const profileForm = useForm({
     initialValues: {
-      username: user?.username || '',
+      name: user?.name || '',
       email: user?.email || '',
     },
     validate: {
-      username: (value) => (!value ? 'Username is required' : null),
+      name: (value) => (!value ? 'Name is required' : null),
       email: (value) => {
         if (!value) return 'Email is required';
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -103,7 +103,7 @@ export default function ProfileModal({ opened, onClose }) {
   useEffect(() => {
     if (user) {
       profileForm.setValues({
-        username: user.username || '',
+        name: user.name || '',
         email: user.email || '',
       });
     }
@@ -118,19 +118,50 @@ export default function ProfileModal({ opened, onClose }) {
     }
   }, [opened]);
 
+  // Listen for password change logout event
+  useEffect(() => {
+    const handlePasswordChangeLogout = (event) => {
+      notify.info(event.detail.message);
+      onClose(); // Close the modal since user will be logged out
+    };
+
+    window.addEventListener(
+      'password-changed-logout',
+      handlePasswordChangeLogout,
+    );
+    return () =>
+      window.removeEventListener(
+        'password-changed-logout',
+        handlePasswordChangeLogout,
+      );
+  }, [notify, onClose]);
+
   const checkWebAuthnSupport = async () => {
-    const supported = webauthnService.isSupported();
-    setIsWebAuthnSupported(supported);
+    // WebAuthn support check - Better Auth handles this internally
+    setIsWebAuthnSupported(true);
   };
 
   const loadPasskeys = async () => {
     try {
       setPasskeysLoading(true);
       setPasskeysError('');
-      const authenticators = await webauthnService.getAuthenticators();
-      setPasskeys(authenticators);
+
+      // Use Better Auth passkey client to list user's passkeys
+      if (passkey && passkey.listUserPasskeys) {
+        const result = await passkey.listUserPasskeys();
+        if (result.error) {
+          throw new Error(result.error.message);
+        }
+        setPasskeys(result.data || []);
+      } else {
+        // Fallback if listing is not available - set empty array
+        console.warn('Passkey listing not available');
+        setPasskeys([]);
+      }
     } catch (error) {
+      console.error('Error loading passkeys:', error);
       setPasskeysError(error.message || 'Failed to load passkeys');
+      setPasskeys([]);
     } finally {
       setPasskeysLoading(false);
     }
@@ -169,7 +200,12 @@ export default function ProfileModal({ opened, onClose }) {
       setProfileError('');
       setProfileSuccess(false);
 
-      await notify.profileUpdate(updateProfile(values.username, values.email));
+      await notify.profileUpdate(
+        updateProfile({
+          name: values.name,
+          email: values.email,
+        }),
+      );
 
       setProfileSuccess(true);
       setIsEditingProfile(false);
@@ -190,7 +226,7 @@ export default function ProfileModal({ opened, onClose }) {
     setProfileError('');
     setProfileSuccess(false);
     profileForm.setValues({
-      username: user?.username || '',
+      name: user?.name || '',
       email: user?.email || '',
     });
   };
@@ -200,22 +236,27 @@ export default function ProfileModal({ opened, onClose }) {
       setRegisteringPasskey(true);
       setPasskeysError('');
 
-      await notify.executeWithNotification(
-        webauthnService.registerPasskey(values.name),
-        {
-          loading: `Registering passkey ${values.name}...`,
-          success: 'Passkey registered successfully.',
-        },
-      );
+      // Use Better Auth addPasskey function
+      const result = await addPasskey({
+        name: values.name,
+      });
+
+      // Better Auth may return result directly or in a result object
+      if (result && result.error) {
+        throw new Error(result.error.message || 'Failed to register passkey');
+      }
+
+      notify.success('Passkey registered successfully!');
 
       // Reload passkeys list
       await loadPasskeys();
       passkeyForm.reset();
-
-      // Switch to passkeys tab to show the new passkey
-      setActiveTab('passkeys');
     } catch (error) {
+      console.error('Passkey registration error:', error);
       setPasskeysError(error.message || 'Failed to register passkey');
+      notify.error(
+        'Failed to register passkey: ' + (error.message || 'Unknown error'),
+      );
     } finally {
       setRegisteringPasskey(false);
     }
@@ -232,16 +273,28 @@ export default function ProfileModal({ opened, onClose }) {
 
     try {
       setPasskeysError('');
-      await notify.executeWithNotification(
-        webauthnService.deleteAuthenticator(credentialId),
-        {
-          loading: 'Deleting passkey...',
-          success: 'Passkey deleted successfully.',
-        },
-      );
-      await loadPasskeys();
+
+      // Use Better Auth passkey deletion
+      if (passkey && passkey.deletePasskey) {
+        const result = await passkey.deletePasskey({
+          id: credentialId,
+        });
+
+        if (result.error) {
+          throw new Error(result.error.message);
+        }
+
+        notify.success('Passkey deleted successfully!');
+
+        // Reload passkeys list
+        await loadPasskeys();
+      } else {
+        throw new Error('Passkey deletion not available');
+      }
     } catch (error) {
+      console.error('Error deleting passkey:', error);
       setPasskeysError(error.message || 'Failed to delete passkey');
+      notify.error('Failed to delete passkey: ' + error.message);
     }
   };
 
@@ -319,9 +372,9 @@ export default function ProfileModal({ opened, onClose }) {
                 <Stack gap="xs">
                   <Group justify="space-between">
                     <Text size="sm" fw={500}>
-                      Username:
+                      Name:
                     </Text>
-                    <Text size="sm">{user?.username}</Text>
+                    <Text size="sm">{user?.name}</Text>
                   </Group>
                   <Group justify="space-between">
                     <Text size="sm" fw={500}>
@@ -352,11 +405,11 @@ export default function ProfileModal({ opened, onClose }) {
               <form onSubmit={profileForm.onSubmit(handleProfileSubmit)}>
                 <Stack gap="md">
                   <TextInput
-                    label="Username"
-                    placeholder="Enter your username"
+                    label="Name"
+                    placeholder="Enter your name"
                     required
-                    autoComplete="username"
-                    {...profileForm.getInputProps('username')}
+                    autoComplete="name"
+                    {...profileForm.getInputProps('name')}
                   />
 
                   <TextInput
@@ -569,9 +622,9 @@ export default function ProfileModal({ opened, onClose }) {
                                 </Group>
                                 <Group gap="xs">
                                   <Badge size="xs" variant="light">
-                                    {webauthnService.getAuthenticatorTypeName(
-                                      passkey.transports,
-                                    )}
+                                    {Array.isArray(passkey.transports)
+                                      ? passkey.transports.join(', ')
+                                      : 'Passkey'}
                                   </Badge>
                                   <Text size="xs" c="dimmed">
                                     Added{' '}

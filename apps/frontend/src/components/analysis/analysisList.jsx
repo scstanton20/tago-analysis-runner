@@ -18,16 +18,10 @@ import { IconFileText, IconInfoCircle, IconUserX } from '@tabler/icons-react';
 
 export default function AnalysisList({
   analyses = null,
-  showDepartmentLabels = false,
-  departments = {},
-  selectedDepartment = null,
+  showTeamLabels = false,
+  selectedTeam = null,
 }) {
-  const {
-    analyses: allAnalyses = {},
-    departments: allDepartments = {},
-    connectionStatus,
-    getDepartment,
-  } = useSSE();
+  const { analyses: allAnalyses = {}, connectionStatus, getTeam } = useSSE();
 
   const { accessibleDepartments, isAdmin } = usePermissions();
 
@@ -42,11 +36,14 @@ export default function AnalysisList({
       }
     }
 
-    // Use WebSocket data and apply department filtering
-    if (selectedDepartment) {
+    // Use WebSocket data and apply team filtering
+    if (selectedTeam) {
       const filtered = {};
       Object.entries(allAnalyses).forEach(([name, analysis]) => {
-        if (analysis.department === selectedDepartment) {
+        if (
+          analysis.teamId === selectedTeam ||
+          analysis.department === selectedTeam
+        ) {
           filtered[name] = analysis;
         }
       });
@@ -54,7 +51,7 @@ export default function AnalysisList({
     }
 
     return allAnalyses;
-  }, [analyses, allAnalyses, selectedDepartment]);
+  }, [analyses, allAnalyses, selectedTeam]);
 
   // Convert to array for rendering (memoized)
   const analysesArray = useMemo(() => {
@@ -64,24 +61,20 @@ export default function AnalysisList({
     return array;
   }, [analysesToShow]);
 
-  // Get departments object for lookups
-  const departmentsObj =
-    Object.keys(departments).length > 0 ? departments : allDepartments;
-
-  // Helper function to get department info
-  const getDepartmentInfo = (departmentId) => {
-    if (!departmentId) {
+  // Helper function to get team info
+  const getTeamInfo = (teamId) => {
+    if (!teamId || teamId === 'uncategorized') {
       return { name: 'Uncategorized', color: '#9ca3af' };
     }
 
-    const department = departmentsObj[departmentId];
-    if (department) {
-      return department;
+    const team = getTeam(teamId);
+    if (team) {
+      return team;
     }
 
-    // Fallback for missing departments
-    console.warn(`Department ${departmentId} not found`);
-    return { name: 'Unknown Department', color: '#ef4444' };
+    // Fallback for missing teams
+    console.warn(`Team ${teamId} not found`);
+    return { name: 'Unknown Team', color: '#ef4444' };
   };
 
   // Log toggle functions
@@ -151,10 +144,8 @@ export default function AnalysisList({
   const hasNoDepartmentAccess =
     !isAdmin && (!accessibleDepartments || accessibleDepartments.length === 0);
 
-  // Get current department info for display
-  const currentDepartmentInfo = selectedDepartment
-    ? getDepartment?.(selectedDepartment)
-    : null;
+  // Get current team info for display
+  const currentTeamInfo = selectedTeam ? getTeam?.(selectedTeam) : null;
 
   return (
     <Paper p="lg" withBorder radius="md">
@@ -163,22 +154,22 @@ export default function AnalysisList({
         <Group justify="space-between" mb="md">
           <Box>
             <Text size="lg" fw={600}>
-              {selectedDepartment ? 'Department Analyses' : 'All Analyses'}
+              {selectedTeam ? 'Team Analyses' : 'All Analyses'}
             </Text>
 
-            {/* Department info */}
-            {selectedDepartment && currentDepartmentInfo && (
+            {/* Team info */}
+            {selectedTeam && currentTeamInfo && (
               <Group gap="xs" mt={4}>
                 <Box
                   w={12}
                   h={12}
                   style={{
                     borderRadius: '50%',
-                    backgroundColor: currentDepartmentInfo.color,
+                    backgroundColor: currentTeamInfo.color,
                   }}
                 />
                 <Text size="sm" c="dimmed" fw={500}>
-                  {currentDepartmentInfo.name}
+                  {currentTeamInfo.name}
                 </Text>
               </Group>
             )}
@@ -186,11 +177,11 @@ export default function AnalysisList({
             {/* Count info */}
             <Text size="sm" c="dimmed" mt={4}>
               {hasAnalyses
-                ? selectedDepartment
+                ? selectedTeam
                   ? `Showing ${analysesArray.length} of ${totalAnalyses} analyses`
-                  : `${analysesArray.length} analysis${analysesArray.length !== 1 ? 'es' : ''} available`
-                : selectedDepartment
-                  ? 'No analyses in this department'
+                  : `${analysesArray.length} ${analysesArray.length === 1 ? 'analysis' : ''}${analysesArray.length !== 1 ? 'analyses' : ''} available`
+                : selectedTeam
+                  ? 'No analyses in this team'
                   : 'No analyses available'}
             </Text>
           </Box>
@@ -224,11 +215,10 @@ export default function AnalysisList({
                   style={{ maxWidth: 500 }}
                 >
                   <Stack gap="sm">
-                    <Text fw={500}>No Department Access</Text>
+                    <Text fw={500}>No Team Access</Text>
                     <Text size="sm">
-                      You haven't been assigned to any departments yet. Please
-                      contact an administrator to request access to the
-                      departments you need.
+                      You haven't been assigned to any teams yet. Please contact
+                      an administrator to request access to the teams you need.
                     </Text>
                   </Stack>
                 </Alert>
@@ -236,23 +226,25 @@ export default function AnalysisList({
             </Center>
           ) : hasAnalyses ? (
             analysesArray.map((analysis) => {
-              const departmentInfo = getDepartmentInfo(analysis.department);
+              const teamInfo = getTeamInfo(
+                analysis.teamId || analysis.department,
+              );
 
               return (
                 <Stack key={`analysis-${analysis.name}`} gap="xs">
-                  {/* Department Label (when showing all analyses) */}
-                  {showDepartmentLabels && !selectedDepartment && (
+                  {/* Team Label (when showing all analyses) */}
+                  {showTeamLabels && !selectedTeam && (
                     <Group gap="xs">
                       <Box
                         w={12}
                         h={12}
                         style={{
                           borderRadius: '50%',
-                          backgroundColor: departmentInfo.color,
+                          backgroundColor: teamInfo.color,
                         }}
                       />
                       <Text size="sm" c="dimmed" fw={500}>
-                        {departmentInfo.name}
+                        {teamInfo.name}
                       </Text>
                     </Group>
                   )}
@@ -262,9 +254,7 @@ export default function AnalysisList({
                     analysis={analysis}
                     showLogs={openLogIds.has(analysis.name)}
                     onToggleLogs={() => toggleLog(analysis.name)}
-                    departmentInfo={
-                      showDepartmentLabels ? departmentInfo : null
-                    }
+                    teamInfo={showTeamLabels ? teamInfo : null}
                   />
                 </Stack>
               );
@@ -275,24 +265,24 @@ export default function AnalysisList({
               <Stack align="center" gap="md">
                 <Box ta="center">
                   <Text c="dimmed" size="md" mb="xs">
-                    {selectedDepartment
-                      ? 'No analyses found in this department'
+                    {selectedTeam
+                      ? 'No analyses found in this team'
                       : totalAnalyses === 0
                         ? 'No analyses available'
                         : 'Loading analyses...'}
                   </Text>
 
                   <Text c="dimmed" size="sm">
-                    {selectedDepartment
-                      ? 'Try selecting a different department or create a new analysis here.'
+                    {selectedTeam
+                      ? 'Try selecting a different team or create a new analysis here.'
                       : totalAnalyses === 0
                         ? 'Upload an analysis file to get started.'
                         : 'Please wait while analyses load from the server.'}
                   </Text>
                 </Box>
 
-                {/* Additional context for department view */}
-                {selectedDepartment && currentDepartmentInfo && (
+                {/* Additional context for team view */}
+                {selectedTeam && currentTeamInfo && (
                   <Alert
                     icon={<IconInfoCircle size={16} />}
                     color="blue"
@@ -300,8 +290,8 @@ export default function AnalysisList({
                     style={{ maxWidth: 400 }}
                   >
                     You can create a new analysis for the{' '}
-                    <strong>{currentDepartmentInfo.name}</strong> department
-                    using the analysis creator above.
+                    <strong>{currentTeamInfo.name}</strong> team using the
+                    analysis creator above.
                   </Alert>
                 )}
               </Stack>

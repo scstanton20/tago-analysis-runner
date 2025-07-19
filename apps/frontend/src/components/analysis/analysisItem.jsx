@@ -25,7 +25,7 @@ import {
   IconHistory,
 } from '@tabler/icons-react';
 import { analysisService } from '../../services/analysisService';
-import { departmentService } from '../../services/departmentService';
+import { teamService } from '../../services/teamService';
 import { useNotifications } from '../../hooks/useNotifications.jsx';
 import AnalysisLogs from './analysisLogs';
 import StatusBadge from './statusBadge';
@@ -35,7 +35,7 @@ import { lazy, Suspense } from 'react';
 const AnalysisEditModal = lazy(() => import('../modals/analysisEdit'));
 const AnalysisEditENVModal = lazy(() => import('../modals/analysisEditENV'));
 import LogDownloadDialog from '../modals/logDownload';
-import DepartmentSelectModal from '../modals/changeDepartmentModal';
+import TeamSelectModal from '../modals/changeTeamModal';
 import VersionManagementModal from '../modals/versionManagement';
 import { useSSE } from '../../contexts/sseContext';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -44,22 +44,18 @@ export default function AnalysisItem({ analysis, showLogs, onToggleLogs }) {
   const [showEditAnalysisModal, setShowEditAnalysisModal] = useState(false);
   const [showEditENVModal, setShowEditENVModal] = useState(false);
   const [showLogDownloadDialog, setShowLogDownloadDialog] = useState(false);
-  const [showDepartmentModal, setShowDepartmentModal] = useState(false);
+  const [showTeamModal, setShowTeamModal] = useState(false);
   const [showVersionModal, setShowVersionModal] = useState(false);
 
-  const {
-    loadingAnalyses,
-    addLoadingAnalysis,
-    removeLoadingAnalysis,
-    departments,
-  } = useSSE();
+  const { loadingAnalyses, addLoadingAnalysis, removeLoadingAnalysis, teams } =
+    useSSE();
   const {
     canRunAnalyses,
     canViewAnalyses,
     canEditAnalyses,
     canDeleteAnalyses,
     canDownloadAnalyses,
-    canAccessDepartment,
+    canAccessTeam,
     isAdmin,
   } = usePermissions();
   const notify = useNotifications();
@@ -69,20 +65,20 @@ export default function AnalysisItem({ analysis, showLogs, onToggleLogs }) {
     return null;
   }
 
-  // Get current department info
-  const allDepartments = Array.isArray(departments)
-    ? departments
-    : Object.values(departments || {});
+  // Get current team info
+  const allTeams = Array.isArray(teams) ? teams : Object.values(teams || {});
 
-  // Filter departments based on user permissions (admins see all, users see only accessible ones)
-  const departmentsArray = isAdmin
-    ? allDepartments
-    : allDepartments.filter((dept) => canAccessDepartment(dept.id));
-  const currentDepartment = departmentsArray.find(
-    (d) => d.id === analysis.department,
+  // Filter teams based on user permissions (admins see all, users see only accessible ones)
+  const teamsArray = isAdmin
+    ? allTeams
+    : allTeams.filter((team) => canAccessTeam(team.id));
+  const currentTeam = teamsArray.find(
+    (t) => t.id === (analysis.teamId || analysis.team),
   );
   const isUncategorized =
-    !analysis.department || analysis.department === 'uncategorized';
+    (!analysis.teamId && !analysis.team) ||
+    analysis.teamId === 'uncategorized' ||
+    analysis.team === 'uncategorized';
 
   const handleRun = async () => {
     addLoadingAnalysis(analysis.name);
@@ -220,16 +216,16 @@ export default function AnalysisItem({ analysis, showLogs, onToggleLogs }) {
     }
   };
 
-  const handleDepartmentChange = async (departmentId) => {
+  const handleTeamChange = async (teamId) => {
     try {
       await notify.executeWithNotification(
-        departmentService.moveAnalysisToDepartment(analysis.name, departmentId),
+        teamService.moveAnalysisToTeam(analysis.name, teamId),
         {
-          loading: `Moving ${analysis.name} to department...`,
-          success: 'Analysis moved to department successfully.',
+          loading: `Moving ${analysis.name} to team...`,
+          success: 'Analysis moved to team successfully.',
         },
       );
-      setShowDepartmentModal(false);
+      setShowTeamModal(false);
     } catch (error) {
       console.error('Error moving analysis:', error);
     }
@@ -269,7 +265,7 @@ export default function AnalysisItem({ analysis, showLogs, onToggleLogs }) {
               </Text>
             </Box>
             <StatusBadge status={analysis.status || 'stopped'} />
-            {currentDepartment && (
+            {currentTeam && (
               <Badge
                 variant="light"
                 color="brand"
@@ -280,12 +276,12 @@ export default function AnalysisItem({ analysis, showLogs, onToggleLogs }) {
                     h={8}
                     style={{
                       borderRadius: '50%',
-                      backgroundColor: currentDepartment.color,
+                      backgroundColor: currentTeam.color,
                     }}
                   />
                 }
               >
-                {currentDepartment.name}
+                {currentTeam.name}
               </Badge>
             )}
           </Group>
@@ -347,11 +343,11 @@ export default function AnalysisItem({ analysis, showLogs, onToggleLogs }) {
                 </Menu.Target>
 
                 <Menu.Dropdown>
-                  {/* Department Management - Admins can move any analysis, users can move uncategorized */}
+                  {/* Team Management - Admins can move any analysis, users can move uncategorized */}
                   {(isAdmin || isUncategorized) && (
                     <>
                       <Menu.Item
-                        onClick={() => setShowDepartmentModal(true)}
+                        onClick={() => setShowTeamModal(true)}
                         leftSection={
                           isUncategorized ? (
                             <IconFolderPlus size={16} />
@@ -360,9 +356,7 @@ export default function AnalysisItem({ analysis, showLogs, onToggleLogs }) {
                           )
                         }
                       >
-                        {isUncategorized
-                          ? 'Add to Department'
-                          : 'Change Department'}
+                        {isUncategorized ? 'Add to Team' : 'Change Team'}
                       </Menu.Item>
                       <Menu.Divider />
                     </>
@@ -490,13 +484,13 @@ export default function AnalysisItem({ analysis, showLogs, onToggleLogs }) {
         onClose={() => setShowLogDownloadDialog(false)}
         onDownload={handleDownloadLogs}
       />
-      {showDepartmentModal && (
-        <DepartmentSelectModal
-          isOpen={showDepartmentModal}
-          onClose={() => setShowDepartmentModal(false)}
-          onSelect={handleDepartmentChange}
-          departments={departmentsArray}
-          currentDepartment={analysis.department}
+      {showTeamModal && (
+        <TeamSelectModal
+          isOpen={showTeamModal}
+          onClose={() => setShowTeamModal(false)}
+          onSelect={handleTeamChange}
+          teams={teamsArray}
+          currentTeam={analysis.teamId || analysis.team}
           analysisName={analysis.name}
         />
       )}
@@ -517,7 +511,7 @@ AnalysisItem.propTypes = {
     name: PropTypes.string.isRequired,
     type: PropTypes.oneOf(['listener']),
     status: PropTypes.string,
-    department: PropTypes.string,
+    team: PropTypes.string,
     logs: PropTypes.arrayOf(
       PropTypes.shape({
         timestamp: PropTypes.string,
@@ -527,7 +521,7 @@ AnalysisItem.propTypes = {
   }).isRequired,
   showLogs: PropTypes.bool.isRequired,
   onToggleLogs: PropTypes.func.isRequired,
-  departmentInfo: PropTypes.shape({
+  teamInfo: PropTypes.shape({
     name: PropTypes.string,
     color: PropTypes.string,
   }),

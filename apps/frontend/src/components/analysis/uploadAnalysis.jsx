@@ -31,8 +31,8 @@ import sanitize from 'sanitize-filename';
 const DEFAULT_EDITOR_CONTENT = '// Write your analysis code here';
 
 export default function AnalysisCreator({
-  targetDepartment = null,
-  departmentName = null,
+  targetTeam = null,
+  teamName = null,
   onClose = null,
 }) {
   // Form state
@@ -215,7 +215,7 @@ export default function AnalysisCreator({
       }
 
       await notify.uploadAnalysis(
-        analysisService.uploadAnalysis(file, analysisType, targetDepartment),
+        analysisService.uploadAnalysis(file, analysisType, targetTeam),
         finalFileName,
       );
 
@@ -273,9 +273,9 @@ export default function AnalysisCreator({
           <Box>
             <Text size="lg" fw={600}>
               Analysis Creator
-              {departmentName && departmentName !== 'All Departments' && (
+              {teamName && teamName !== 'All Teams' && (
                 <Text span size="sm" fw={400} c="dimmed" ml="xs">
-                  - '{departmentName}' group
+                  - '{teamName}' group
                 </Text>
               )}
             </Text>

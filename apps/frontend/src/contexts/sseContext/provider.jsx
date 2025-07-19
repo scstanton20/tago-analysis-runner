@@ -2,12 +2,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { SSEContext } from './context';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '../AuthProvider';
 
 export function SSEProvider({ children }) {
   const { isAuthenticated } = useAuth();
   const [analyses, setAnalyses] = useState({});
-  const [departments, setDepartments] = useState({});
+  const [teams, setTeams] = useState({});
   const [loadingAnalyses, setLoadingAnalyses] = useState(new Set());
   const [connectionStatus, setConnectionStatus] = useState('connecting');
   const [backendStatus, setBackendStatus] = useState(null);
@@ -66,11 +66,11 @@ export function SSEProvider({ children }) {
     }
   }, [isAuthenticated]);
 
-  const getDepartment = useCallback(
-    (departmentId) => {
-      return departments[departmentId] || null;
+  const getTeam = useCallback(
+    (teamId) => {
+      return teams[teamId] || null;
     },
-    [departments],
+    [teams],
   );
 
   const handleMessage = useCallback(
@@ -99,19 +99,19 @@ export function SSEProvider({ children }) {
               }
             }
 
-            let departmentsObj = {};
-            if (data.departments) {
-              if (Array.isArray(data.departments)) {
-                data.departments.forEach((dept) => {
-                  departmentsObj[dept.id] = dept;
+            let teamsObj = {};
+            if (data.teams) {
+              if (Array.isArray(data.teams)) {
+                data.teams.forEach((team) => {
+                  teamsObj[team.id] = team;
                 });
               } else {
-                departmentsObj = data.departments;
+                teamsObj = data.teams;
               }
             }
 
             setAnalyses(analysesObj);
-            setDepartments(departmentsObj);
+            setTeams(teamsObj);
             setHasInitialData(true);
 
             // Initialize log sequences tracking
@@ -171,7 +171,8 @@ export function SSEProvider({ children }) {
                 const newAnalysis = {
                   ...data.data.analysisData,
                   name: data.data.analysis,
-                  department: data.data.department || 'uncategorized',
+                  teamId:
+                    data.data.teamId || data.data.department || 'uncategorized',
                 };
 
                 setAnalyses((prev) => ({
@@ -215,7 +216,11 @@ export function SSEProvider({ children }) {
                     name: data.data.newFileName,
                     status: data.data.restarted ? 'running' : analysis.status,
                     enabled: data.data.restarted ? true : analysis.enabled,
-                    department: data.data.department || analysis.department,
+                    teamId:
+                      data.data.teamId ||
+                      data.data.department ||
+                      analysis.teamId ||
+                      analysis.department,
                   };
                   delete newAnalyses[data.data.oldFileName];
                 }
@@ -233,8 +238,10 @@ export function SSEProvider({ children }) {
                   ...prev[data.data.fileName],
                   status: data.data.status,
                   enabled: data.data.enabled,
-                  department:
+                  teamId:
+                    data.data.teamId ||
                     data.data.department ||
+                    prev[data.data.fileName]?.teamId ||
                     prev[data.data.fileName]?.department,
                   lastRun:
                     data.data.lastRun || prev[data.data.fileName]?.lastRun,
@@ -252,8 +259,10 @@ export function SSEProvider({ children }) {
                 [data.data.fileName]: {
                   ...prev[data.data.fileName],
                   status: data.data.status || prev[data.data.fileName]?.status,
-                  department:
+                  teamId:
+                    data.data.teamId ||
                     data.data.department ||
+                    prev[data.data.fileName]?.teamId ||
                     prev[data.data.fileName]?.department,
                   lastRun:
                     data.data.lastRun || prev[data.data.fileName]?.lastRun,
@@ -274,8 +283,10 @@ export function SSEProvider({ children }) {
                 [data.data.fileName]: {
                   ...prev[data.data.fileName],
                   status: data.data.status || prev[data.data.fileName]?.status,
-                  department:
+                  teamId:
+                    data.data.teamId ||
                     data.data.department ||
+                    prev[data.data.fileName]?.teamId ||
                     prev[data.data.fileName]?.department,
                   lastRun:
                     data.data.lastRun || prev[data.data.fileName]?.lastRun,
@@ -286,61 +297,69 @@ export function SSEProvider({ children }) {
             }
             break;
 
-          case 'departmentCreated':
-          case 'departmentUpdated':
-            if (data.department) {
-              setDepartments((prev) => ({
+          case 'teamCreated':
+          case 'teamUpdated':
+            if (data.team) {
+              setTeams((prev) => ({
                 ...prev,
-                [data.department.id]: data.department,
+                [data.team.id]: data.team,
               }));
             }
             break;
 
-          case 'departmentDeleted':
+          case 'teamDeleted':
             if (data.deleted) {
-              setDepartments((prev) => {
-                const newDepts = { ...prev };
-                delete newDepts[data.deleted];
-                return newDepts;
+              console.log('SSE: Team deleted:', data);
+              setTeams((prev) => {
+                const newTeams = { ...prev };
+                delete newTeams[data.deleted];
+                return newTeams;
               });
-              if (data.analysesMovedTo) {
-                setAnalyses((prev) => {
-                  const newAnalyses = {};
-                  Object.entries(prev).forEach(([name, analysis]) => {
-                    newAnalyses[name] =
-                      analysis.department === data.deleted
-                        ? { ...analysis, department: data.analysesMovedTo }
-                        : analysis;
-                  });
-                  return newAnalyses;
+
+              // Always update analyses when a team is deleted
+              setAnalyses((prev) => {
+                const newAnalyses = {};
+                Object.entries(prev).forEach(([name, analysis]) => {
+                  if (analysis.teamId === data.deleted) {
+                    // Move analyses from deleted team to target team
+                    const targetTeamId =
+                      data.analysesMovedTo || 'uncategorized';
+                    console.log(
+                      `SSE: Moving analysis ${name} from deleted team ${data.deleted} to ${targetTeamId}`,
+                    );
+                    newAnalyses[name] = { ...analysis, teamId: targetTeamId };
+                  } else {
+                    newAnalyses[name] = analysis;
+                  }
                 });
-              }
+                return newAnalyses;
+              });
             }
             break;
 
-          case 'analysisMovedToDepartment':
+          case 'analysisMovedToTeam':
             if (data.analysis && data.to) {
               setAnalyses((prev) => ({
                 ...prev,
                 [data.analysis]: {
                   ...prev[data.analysis],
-                  department: data.to,
+                  teamId: data.to,
                 },
               }));
             }
             break;
 
-          case 'departmentsReordered':
-            if (data.departments) {
-              let departmentsObj = {};
-              if (Array.isArray(data.departments)) {
-                data.departments.forEach((dept) => {
-                  departmentsObj[dept.id] = dept;
+          case 'teamsReordered':
+            if (data.teams) {
+              let teamsObj = {};
+              if (Array.isArray(data.teams)) {
+                data.teams.forEach((team) => {
+                  teamsObj[team.id] = team;
                 });
               } else {
-                departmentsObj = data.departments;
+                teamsObj = data.teams;
               }
-              setDepartments(departmentsObj);
+              setTeams(teamsObj);
             }
             break;
 
@@ -431,14 +450,23 @@ export function SSEProvider({ children }) {
               return;
             }
 
-            // Force logout on session invalidation
-            if (window.authService) {
-              window.authService.token = null;
-              window.authService.user = null;
-              localStorage.removeItem('auth_status');
-              window.location.reload();
-            }
+            // Force logout on session invalidation - Better Auth will handle this
+            window.location.reload();
             break;
+
+          case 'userLogout': {
+            console.log('User logout event received via SSE, data:', data);
+            // Dispatch custom event for AuthProvider to handle
+            const customEvent = new CustomEvent('sse-user-logout', {
+              detail: { type: 'user-logout', userId: data.userId },
+            });
+            console.log(
+              'Dispatching sse-user-logout event:',
+              customEvent.detail,
+            );
+            window.dispatchEvent(customEvent);
+            break;
+          }
 
           default:
             console.log('Unhandled SSE message type:', data.type);
@@ -476,33 +504,6 @@ export function SSEProvider({ children }) {
 
     setTimeout(async () => {
       if (!mountedRef.current) return;
-
-      // Refresh token before reconnecting
-      if (window.authService && isAuthenticated) {
-        try {
-          const refreshResult = await window.authService.refreshToken();
-          if (!refreshResult.rateLimited) {
-            console.log('Token refreshed successfully before SSE reconnection');
-          }
-        } catch (error) {
-          console.error('Token refresh failed during reconnection:', error);
-
-          if (
-            error.message.includes('expired') ||
-            error.message.includes('invalid') ||
-            error.message.includes('Session anomaly') ||
-            error.message.includes('log in again')
-          ) {
-            if (mountedRef.current) {
-              setConnectionStatus('failed');
-              connectionStatusRef.current = 'failed';
-            }
-            return;
-          }
-
-          console.log('Continuing SSE reconnection despite refresh error');
-        }
-      }
 
       setConnectionStatus('connecting');
       connectionStatusRef.current = 'connecting';
@@ -619,36 +620,6 @@ export function SSEProvider({ children }) {
           eventSourceRef.current.readyState !== EventSource.OPEN
         ) {
           console.log('Page became visible, attempting SSE reconnection...');
-
-          if (window.authService && isAuthenticated) {
-            try {
-              const refreshResult = await window.authService.refreshToken();
-              if (!refreshResult.rateLimited) {
-                console.log(
-                  'Token refreshed successfully before SSE visibility reconnection',
-                );
-              }
-            } catch (error) {
-              console.error(
-                'Token refresh failed before SSE reconnection:',
-                error,
-              );
-
-              if (
-                error.message.includes('expired') ||
-                error.message.includes('invalid') ||
-                error.message.includes('Session anomaly') ||
-                error.message.includes('log in again')
-              ) {
-                return;
-              }
-
-              console.log(
-                'Continuing SSE visibility reconnection despite refresh error',
-              );
-            }
-          }
-
           connect();
         }
       }
@@ -662,36 +633,6 @@ export function SSEProvider({ children }) {
           eventSourceRef.current.readyState !== EventSource.OPEN
         ) {
           console.log('Window gained focus, attempting SSE reconnection...');
-
-          if (window.authService && isAuthenticated) {
-            try {
-              const refreshResult = await window.authService.refreshToken();
-              if (!refreshResult.rateLimited) {
-                console.log(
-                  'Token refreshed successfully before SSE focus reconnection',
-                );
-              }
-            } catch (error) {
-              console.error(
-                'Token refresh failed before SSE reconnection:',
-                error,
-              );
-
-              if (
-                error.message.includes('expired') ||
-                error.message.includes('invalid') ||
-                error.message.includes('Session anomaly') ||
-                error.message.includes('log in again')
-              ) {
-                return;
-              }
-
-              console.log(
-                'Continuing SSE focus reconnection despite refresh error',
-              );
-            }
-          }
-
           connect();
         }
       }
@@ -732,14 +673,14 @@ export function SSEProvider({ children }) {
 
   const value = {
     analyses,
-    departments,
+    teams,
     loadingAnalyses,
     addLoadingAnalysis,
     removeLoadingAnalysis,
     connectionStatus,
     backendStatus,
     requestStatusUpdate,
-    getDepartment,
+    getTeam,
     hasInitialData,
     serverShutdown,
   };

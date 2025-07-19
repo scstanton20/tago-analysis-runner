@@ -51,12 +51,12 @@ const analysisController = {
 
       const analysis = req.files.analysis;
       const type = req.body.type || 'listener';
-      const department = req.body.department || 'uncategorized'; // Get department from request
+      const teamId = req.body.teamId;
 
       const result = await analysisService.uploadAnalysis(
         analysis,
         type,
-        department,
+        teamId,
       );
 
       // Get the complete analysis data to broadcast
@@ -68,7 +68,7 @@ const analysisController = {
         type: 'analysisCreated',
         data: {
           analysis: result.analysisName,
-          department: department,
+          teamId: teamId,
           analysisData: createdAnalysis,
         },
       });
@@ -180,7 +180,7 @@ const analysisController = {
         type: 'analysisDeleted',
         data: {
           fileName: sanitizedFileName,
-          department: analysisToDelete?.department,
+          teamId: analysisToDelete?.teamId,
         },
       });
 

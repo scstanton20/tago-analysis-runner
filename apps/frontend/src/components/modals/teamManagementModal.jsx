@@ -1,5 +1,5 @@
-// frontend/src/components/modals/departmentManagementModal.jsx
-import { useState, useMemo } from 'react';
+// frontend/src/components/modals/teamManagementModal.jsx
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -28,7 +28,7 @@ import {
   CheckIcon,
 } from '@mantine/core';
 import { IconEdit, IconTrash, IconX } from '@tabler/icons-react';
-import { departmentService } from '../../services/departmentService';
+import { teamService } from '../../services/teamService';
 import { useNotifications } from '../../hooks/useNotifications.jsx';
 
 const PREDEFINED_COLORS = [
@@ -85,36 +85,51 @@ const ColorSwatchWithSelection = ({
   </ColorSwatch>
 );
 
-export default function DepartmentManagementModal({
-  opened,
-  onClose,
-  departments,
-}) {
-  const [newDeptName, setNewDeptName] = useState('');
-  const [newDeptColor, setNewDeptColor] = useState('');
+export default function TeamManagementModal({ opened, onClose, teams }) {
+  const [newTeamName, setNewTeamName] = useState('');
+  const [newTeamColor, setNewTeamColor] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editingName, setEditingName] = useState('');
   const [editingColor, setEditingColor] = useState('');
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const notify = useNotifications();
 
-  // Convert departments object to sorted array for display
-  const departmentsArray = useMemo(
-    () => Object.values(departments).sort((a, b) => a.order - b.order),
-    [departments],
+  // Refs for click outside functionality
+  const editingRef = useRef();
+  const deletingRef = useRef();
+
+  // Escape key handler for deleting mode
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        if (deletingId) {
+          setDeletingId(null);
+        }
+      }
+    };
+
+    if (deletingId) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [deletingId]);
+
+  // Convert teams object to sorted array for display
+  const teamsArray = useMemo(
+    () => Object.values(teams).sort((a, b) => a.order - b.order),
+    [teams],
   );
 
   // Get used colors and names
   const usedColors = useMemo(
-    () => new Set(departmentsArray.map((dept) => dept.color)),
-    [departmentsArray],
+    () => new Set(teamsArray.map((team) => team.color)),
+    [teamsArray],
   );
 
   const usedNames = useMemo(
-    () =>
-      new Set(departmentsArray.map((dept) => dept.name.toLowerCase().trim())),
-    [departmentsArray],
+    () => new Set(teamsArray.map((team) => team.name.toLowerCase().trim())),
+    [teamsArray],
   );
 
   const sensors = useSensors(
@@ -125,71 +140,71 @@ export default function DepartmentManagementModal({
     }),
   );
 
-  const handleCreateDepartment = async (e) => {
+  const handleCreateTeam = async (e) => {
     e.preventDefault();
-    if (!newDeptName.trim() || !newDeptColor || isLoading) return;
+    if (!newTeamName.trim() || !newTeamColor || isLoading) return;
 
     // Check for duplicate name
-    if (usedNames.has(newDeptName.toLowerCase().trim())) {
+    if (usedNames.has(newTeamName.toLowerCase().trim())) {
       notify.error(
-        'A department with this name already exists. Please choose a different name.',
+        'A team with this name already exists. Please choose a different name.',
       );
       return;
     }
 
     setIsLoading(true);
     try {
-      await notify.createDepartment(
-        departmentService.createDepartment(newDeptName.trim(), newDeptColor),
-        newDeptName.trim(),
+      await notify.createTeam(
+        teamService.createTeam(newTeamName.trim(), newTeamColor),
+        newTeamName.trim(),
       );
-      setNewDeptName('');
-      setNewDeptColor('');
+      setNewTeamName('');
+      setNewTeamColor('');
     } catch (error) {
-      console.error('Error creating department:', error);
+      console.error('Error creating team:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleUpdateName = async (id) => {
-    const currentDept = departmentsArray.find((d) => d.id === id);
-    if (!editingName.trim() || editingName === currentDept?.name || isLoading) {
+    const currentTeam = teamsArray.find((d) => d.id === id);
+    if (!editingName.trim() || editingName === currentTeam?.name || isLoading) {
       setEditingId(null);
       return;
     }
 
-    // Check for duplicate name (excluding current department)
+    // Check for duplicate name (excluding current team)
     const otherNames = new Set(
-      departmentsArray
-        .filter((dept) => dept.id !== id)
-        .map((dept) => dept.name.toLowerCase().trim()),
+      teamsArray
+        .filter((team) => team.id !== id)
+        .map((team) => team.name.toLowerCase().trim()),
     );
 
     if (otherNames.has(editingName.toLowerCase().trim())) {
       notify.error(
-        'A department with this name already exists. Please choose a different name.',
+        'A team with this name already exists. Please choose a different name.',
       );
       return;
     }
 
     setIsLoading(true);
     try {
-      await notify.updateDepartment(
-        departmentService.updateDepartment(id, {
+      await notify.updateTeam(
+        teamService.updateTeam(id, {
           name: editingName.trim(),
         }),
         editingName.trim(),
       );
       setEditingId(null);
     } catch (error) {
-      console.error('Error updating department name:', error);
+      console.error('Error updating team name:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleColorClick = (deptId, color) => {
+  const handleColorClick = (color) => {
     // Just update the local editing color state, don't make API call yet
     setEditingColor(color);
   };
@@ -203,18 +218,18 @@ export default function DepartmentManagementModal({
 
     setIsLoading(true);
     try {
-      const currentDept = departmentsArray.find((d) => d.id === id);
+      const currentTeam = teamsArray.find((d) => d.id === id);
       await notify.executeWithNotification(
-        departmentService.updateDepartment(id, { color: editingColor }),
+        teamService.updateTeam(id, { color: editingColor }),
         {
-          loading: `Updating ${currentDept?.name || 'department'} color...`,
-          success: 'Department color updated successfully.',
+          loading: `Updating ${currentTeam?.name || 'team'} color...`,
+          success: 'Team color updated successfully.',
         },
       );
       setEditingId(null);
       setEditingColor('');
     } catch (error) {
-      console.error('Error updating department color:', error);
+      console.error('Error updating team color:', error);
     } finally {
       setIsLoading(false);
     }
@@ -225,14 +240,14 @@ export default function DepartmentManagementModal({
 
     setIsLoading(true);
     try {
-      const currentDept = departmentsArray.find((d) => d.id === id);
-      await notify.deleteDepartment(
-        departmentService.deleteDepartment(id, 'uncategorized'),
-        currentDept?.name || 'department',
+      const currentTeam = teamsArray.find((d) => d.id === id);
+      await notify.deleteTeam(
+        teamService.deleteTeam(id, 'uncategorized'),
+        currentTeam?.name || 'team',
       );
-      setShowDeleteConfirm(null);
+      setDeletingId(null);
     } catch (error) {
-      console.error('Error deleting department:', error);
+      console.error('Error deleting team:', error);
     } finally {
       setIsLoading(false);
     }
@@ -242,31 +257,31 @@ export default function DepartmentManagementModal({
     const { active, over } = event;
 
     if (active.id !== over.id && !isLoading) {
-      const oldIndex = departmentsArray.findIndex((d) => d.id === active.id);
-      const newIndex = departmentsArray.findIndex((d) => d.id === over.id);
-      const newOrder = arrayMove(departmentsArray, oldIndex, newIndex);
+      const oldIndex = teamsArray.findIndex((d) => d.id === active.id);
+      const newIndex = teamsArray.findIndex((d) => d.id === over.id);
+      const newOrder = arrayMove(teamsArray, oldIndex, newIndex);
 
       setIsLoading(true);
       try {
         await notify.executeWithNotification(
-          departmentService.reorderDepartments(newOrder.map((d) => d.id)),
+          teamService.reorderTeams(newOrder.map((d) => d.id)),
           {
-            loading: 'Reordering departments...',
-            success: 'Departments reordered successfully.',
+            loading: 'Reordering teams...',
+            success: 'Teams reordered successfully.',
           },
         );
       } catch (error) {
-        console.error('Error reordering departments:', error);
+        console.error('Error reordering teams:', error);
       } finally {
         setIsLoading(false);
       }
     }
   };
 
-  const startEditingColor = (dept) => {
-    setEditingId(dept.id);
-    setEditingName(dept.name);
-    setEditingColor(dept.color);
+  const startEditingColor = (team) => {
+    setEditingId(team.id);
+    setEditingName(team.name);
+    setEditingColor(team.color);
   };
 
   const getAvailableColors = (excludeColor = null) => {
@@ -277,12 +292,12 @@ export default function DepartmentManagementModal({
 
   const handleModalClose = () => {
     // Reset all pending changes when modal closes
-    setNewDeptName('');
-    setNewDeptColor('');
+    setNewTeamName('');
+    setNewTeamColor('');
     setEditingId(null);
     setEditingName('');
     setEditingColor('');
-    setShowDeleteConfirm(null);
+    setDeletingId(null);
     onClose();
   };
 
@@ -290,26 +305,26 @@ export default function DepartmentManagementModal({
     <Modal
       opened={opened}
       onClose={handleModalClose}
-      title="Manage Departments"
+      title="Manage Teams"
       size="lg"
     >
       <Stack>
-        {/* Create New Department */}
+        {/* Create New Team */}
         <Box>
           <Text size="sm" fw={600} mb="sm">
-            Create New Department
+            Create New Team
           </Text>
-          <form onSubmit={handleCreateDepartment}>
+          <form onSubmit={handleCreateTeam}>
             <Stack gap="sm">
               <TextInput
-                value={newDeptName}
-                onChange={(e) => setNewDeptName(e.target.value)}
-                placeholder="Department name"
+                value={newTeamName}
+                onChange={(e) => setNewTeamName(e.target.value)}
+                placeholder="Team name"
                 size="sm"
                 disabled={isLoading}
                 error={
-                  usedNames.has(newDeptName.toLowerCase().trim()) &&
-                  newDeptName.trim()
+                  usedNames.has(newTeamName.toLowerCase().trim()) &&
+                  newTeamName.trim()
                     ? 'This name is already in use'
                     : null
                 }
@@ -325,8 +340,8 @@ export default function DepartmentManagementModal({
                       key={color}
                       color={color}
                       isUsed={usedColors.has(color)}
-                      isSelected={newDeptColor === color}
-                      onClick={() => setNewDeptColor(color)}
+                      isSelected={newTeamColor === color}
+                      onClick={() => setNewTeamColor(color)}
                       size={32}
                     />
                   ))}
@@ -339,14 +354,14 @@ export default function DepartmentManagementModal({
               </Box>
 
               <Group justify="space-between">
-                {newDeptColor ? (
+                {newTeamColor ? (
                   <Group gap="xs">
                     <Text size="xs" c="dimmed">
                       Selected:
                     </Text>
-                    <ColorSwatch color={newDeptColor} size={20} />
+                    <ColorSwatch color={newTeamColor} size={20} />
                     <Text size="xs" fw={500}>
-                      {newDeptColor}
+                      {newTeamColor}
                     </Text>
                   </Group>
                 ) : (
@@ -357,9 +372,9 @@ export default function DepartmentManagementModal({
                 <Button
                   type="submit"
                   disabled={
-                    !newDeptName.trim() ||
-                    !newDeptColor ||
-                    usedNames.has(newDeptName.toLowerCase().trim()) ||
+                    !newTeamName.trim() ||
+                    !newTeamColor ||
+                    usedNames.has(newTeamName.toLowerCase().trim()) ||
                     isLoading
                   }
                   loading={isLoading}
@@ -375,10 +390,10 @@ export default function DepartmentManagementModal({
 
         <Divider />
 
-        {/* Existing Departments */}
+        {/* Existing Teams */}
         <Box>
           <Text size="sm" fw={600} mb="sm">
-            Existing Departments
+            Existing Teams
           </Text>
           <DndContext
             sensors={sensors}
@@ -386,21 +401,21 @@ export default function DepartmentManagementModal({
             onDragEnd={handleDragEnd}
           >
             <SortableContext
-              items={departmentsArray.map((d) => d.id)}
+              items={teamsArray.map((d) => d.id)}
               strategy={verticalListSortingStrategy}
             >
               <Stack gap="xs">
-                {departmentsArray.map((dept) => (
-                  <Paper key={dept.id} p="sm" withBorder>
-                    {editingId === dept.id ? (
+                {teamsArray.map((team) => (
+                  <Paper key={team.id} p="sm" withBorder>
+                    {editingId === team.id ? (
                       // Editing mode
-                      <Stack gap="sm">
+                      <Stack gap="sm" ref={editingRef}>
                         <TextInput
                           value={editingName}
                           onChange={(e) => setEditingName(e.target.value)}
-                          onKeyPress={(e) => {
+                          onKeyDown={(e) => {
                             if (e.key === 'Enter') {
-                              handleUpdateName(dept.id);
+                              handleUpdateName(team.id);
                             } else if (e.key === 'Escape') {
                               setEditingId(null);
                             }
@@ -411,8 +426,8 @@ export default function DepartmentManagementModal({
                           error={(() => {
                             const trimmed = editingName.toLowerCase().trim();
                             const otherNames = new Set(
-                              departmentsArray
-                                .filter((d) => d.id !== dept.id)
+                              teamsArray
+                                .filter((d) => d.id !== team.id)
                                 .map((d) => d.name.toLowerCase().trim()),
                             );
                             return otherNames.has(trimmed) && editingName.trim()
@@ -431,10 +446,10 @@ export default function DepartmentManagementModal({
                                 key={color}
                                 color={color}
                                 isUsed={
-                                  usedColors.has(color) && color !== dept.color
+                                  usedColors.has(color) && color !== team.color
                                 }
                                 isSelected={editingColor === color}
-                                onClick={() => handleColorClick(dept.id, color)}
+                                onClick={() => handleColorClick(color)}
                                 size={28}
                               />
                             ))}
@@ -447,29 +462,29 @@ export default function DepartmentManagementModal({
                               {editingColor ? 'Preview:' : 'Current:'}
                             </Text>
                             <ColorSwatch
-                              color={editingColor || dept.color}
+                              color={editingColor || team.color}
                               size={16}
                             />
                             <Text size="xs" fw={500}>
-                              {editingColor || dept.color}
+                              {editingColor || team.color}
                             </Text>
                           </Group>
                           <Group gap="xs">
-                            {editingColor && editingColor !== dept.color && (
+                            {editingColor && editingColor !== team.color && (
                               <Button
                                 size="xs"
-                                onClick={() => handleSaveColorChange(dept.id)}
+                                onClick={() => handleSaveColorChange(team.id)}
                                 loading={isLoading}
                                 disabled={isLoading}
                               >
                                 Save
                               </Button>
                             )}
-                            {editingName !== dept.name && (
+                            {editingName !== team.name && (
                               <Button
                                 size="xs"
                                 variant="light"
-                                onClick={() => handleUpdateName(dept.id)}
+                                onClick={() => handleUpdateName(team.id)}
                                 loading={isLoading}
                                 disabled={isLoading}
                               >
@@ -485,27 +500,62 @@ export default function DepartmentManagementModal({
                               }}
                               disabled={isLoading}
                             >
-                              {(editingColor && editingColor !== dept.color) ||
-                              editingName !== dept.name
+                              {(editingColor && editingColor !== team.color) ||
+                              editingName !== team.name
                                 ? 'Cancel'
                                 : 'Done'}
                             </Button>
                           </Group>
                         </Group>
                       </Stack>
+                    ) : deletingId === team.id ? (
+                      // Delete confirmation mode
+                      <Stack gap="sm" ref={deletingRef}>
+                        <Group gap="sm" align="center">
+                          <ColorSwatch color={team.color} size={20} />
+                          <Text size="sm" style={{ flex: 1 }}>
+                            {team.name}
+                          </Text>
+                        </Group>
+                        <Paper p="sm" withBorder>
+                          <Text size="sm" c="red.8" mb="sm">
+                            Are you sure you want to delete this team? All
+                            analyses will be moved to Uncategorized.
+                          </Text>
+                          <Group gap="xs">
+                            <Button
+                              size="xs"
+                              color="red"
+                              onClick={() => handleDelete(team.id)}
+                              loading={isLoading}
+                              disabled={isLoading}
+                            >
+                              Delete
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="default"
+                              onClick={() => setDeletingId(null)}
+                              disabled={isLoading}
+                            >
+                              Cancel
+                            </Button>
+                          </Group>
+                        </Paper>
+                      </Stack>
                     ) : (
                       // Display mode
                       <Group gap="sm">
-                        <ColorSwatch color={dept.color} size={20} />
+                        <ColorSwatch color={team.color} size={20} />
                         <Text size="sm" style={{ flex: 1 }}>
-                          {dept.name}
+                          {team.name}
                         </Text>
-                        {!dept.isSystem && (
+                        {!team.isSystem && (
                           <Group gap={4}>
                             <ActionIcon
                               variant="subtle"
                               size="sm"
-                              onClick={() => startEditingColor(dept)}
+                              onClick={() => startEditingColor(team)}
                               disabled={isLoading}
                             >
                               <IconEdit size={16} />
@@ -514,7 +564,7 @@ export default function DepartmentManagementModal({
                               variant="subtle"
                               size="sm"
                               color="red"
-                              onClick={() => setShowDeleteConfirm(dept.id)}
+                              onClick={() => setDeletingId(team.id)}
                               disabled={isLoading}
                             >
                               <IconTrash size={16} />
@@ -529,35 +579,6 @@ export default function DepartmentManagementModal({
             </SortableContext>
           </DndContext>
         </Box>
-
-        {/* Delete Confirmation */}
-        {showDeleteConfirm && (
-          <Paper p="md" withBorder bg="red.0">
-            <Text size="sm" c="red.8" mb="sm">
-              Are you sure you want to delete this department? All analyses will
-              be moved to Uncategorized.
-            </Text>
-            <Group gap="xs">
-              <Button
-                size="xs"
-                color="red"
-                onClick={() => handleDelete(showDeleteConfirm)}
-                loading={isLoading}
-                disabled={isLoading}
-              >
-                Delete
-              </Button>
-              <Button
-                size="xs"
-                variant="default"
-                onClick={() => setShowDeleteConfirm(null)}
-                disabled={isLoading}
-              >
-                Cancel
-              </Button>
-            </Group>
-          </Paper>
-        )}
       </Stack>
     </Modal>
   );

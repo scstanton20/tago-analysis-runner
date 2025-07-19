@@ -1,6 +1,6 @@
 // backend/src/utils/sse.js
-import { verifyToken } from './jwt.js';
-import userService from '../services/userService.js';
+import { auth } from '../lib/auth.js';
+import { fromNodeHeaders } from 'better-auth/node';
 
 class SSEManager {
   // Add authenticated SSE client
@@ -152,20 +152,18 @@ class SSEManager {
       const { analysisService } = await import(
         '../services/analysisService.js'
       );
-      const departmentService = (
-        await import('../services/departmentService.js')
-      ).default;
+      const teamService = (await import('../services/teamService.js')).default;
 
-      const [analyses, departments] = await Promise.all([
+      const [analyses, teams] = await Promise.all([
         analysisService.getAllAnalyses(),
-        departmentService.getAllDepartments(),
+        teamService.getAllTeams(),
       ]);
 
       const initData = {
         type: 'init',
         analyses,
-        departments,
-        version: '2.0',
+        teams,
+        version: '3.0',
       };
 
       const message = this.formatSSEMessage(initData);
@@ -278,20 +276,20 @@ class SSEManager {
     this.broadcast({ type: 'refresh' });
   }
 
-  broadcastDepartmentUpdate(department, action) {
+  broadcastTeamUpdate(team, action) {
     this.broadcast({
-      type: 'departmentUpdate',
+      type: 'teamUpdate',
       action,
-      department,
+      team,
     });
   }
 
-  broadcastAnalysisMove(analysisName, fromDept, toDept) {
+  broadcastAnalysisMove(analysisName, fromTeam, toTeam) {
     this.broadcast({
-      type: 'analysisMovedToDepartment',
+      type: 'analysisMovedToTeam',
       analysis: analysisName,
-      from: fromDept,
-      to: toDept,
+      from: fromTeam,
+      to: toTeam,
     });
   }
 
@@ -314,35 +312,20 @@ class SSEManager {
 // Export singleton instance
 export const sseManager = new SSEManager();
 
-// Authentication middleware for SSE
+// Authentication middleware for SSE using Better Auth
 export async function authenticateSSE(req, res, next) {
   try {
-    // Extract token from cookies
-    const cookies = req.headers.cookie;
-    let token = null;
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(req.headers),
+    });
 
-    if (cookies) {
-      const cookieMatch = cookies.match(/access_token=([^;]+)/);
-      if (cookieMatch) {
-        token = cookieMatch[1];
-      }
-    }
-
-    if (!token) {
-      console.log('SSE authentication failed: No access token cookie');
+    if (!session?.session || !session?.user) {
+      console.log('SSE authentication failed: No valid session');
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const decoded = verifyToken(token);
-    const user = await userService.getUserById(decoded.id);
-
-    if (!user) {
-      console.log('SSE authentication failed: Invalid user');
-      return res.status(401).json({ error: 'Invalid user' });
-    }
-
-    // Avoid race condition warning by using Object.assign
-    Object.assign(req, { user });
+    // Attach user to request
+    Object.assign(req, { user: session.user });
     next();
   } catch (error) {
     console.error('SSE authentication failed:', error.message);

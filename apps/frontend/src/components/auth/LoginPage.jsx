@@ -17,14 +17,11 @@ import {
   IconLogin,
   IconFingerprint,
 } from '@tabler/icons-react';
-import { useAuth } from '../../hooks/useAuth';
-import { webauthnService } from '../../services/webauthnService';
+import { signIn, signInPasskey } from '../../lib/auth.js';
 import { useNotifications } from '../../hooks/useNotifications.jsx';
 import Logo from '../logo';
-import PasswordOnboarding from './PasswordOnboarding';
 
 export default function LoginPage() {
-  const { login, loginWithPasskey } = useAuth();
   const notify = useNotifications();
   const [formData, setFormData] = useState({
     username: '',
@@ -33,7 +30,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [error, setError] = useState('');
-  const [passwordChangeRequired, setPasswordChangeRequired] = useState(null);
   const [isWebAuthnSupported, setIsWebAuthnSupported] = useState(false);
 
   // Handle password manager autofill
@@ -87,16 +83,30 @@ export default function LoginPage() {
     setError('');
 
     try {
-      await notify.login(
-        login(formData.username.toLowerCase(), formData.password),
-      );
-    } catch (err) {
-      if (err.mustChangePassword) {
-        setPasswordChangeRequired(err.user);
-        setError('');
+      // Determine if input is email or username
+      const isEmail = formData.username.includes('@');
+
+      let result;
+      if (isEmail) {
+        result = await signIn.email({
+          email: formData.username,
+          password: formData.password,
+        });
       } else {
-        setError(err.message || 'Login failed');
+        result = await signIn.username({
+          username: formData.username,
+          password: formData.password,
+        });
       }
+
+      if (result.error) {
+        throw new Error(result.error.message);
+      }
+
+      // Show success notification - Better Auth will handle the redirect automatically
+      notify.success('Welcome back! You have been signed in successfully.');
+    } catch (err) {
+      setError(err.message || 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -109,8 +119,14 @@ export default function LoginPage() {
 
   // Check WebAuthn support on component mount
   useEffect(() => {
-    const checkSupport = async () => {
-      const supported = webauthnService.isSupported();
+    const checkSupport = () => {
+      // Basic WebAuthn support check
+      const supported = !!(
+        window.PublicKeyCredential &&
+        window.navigator.credentials &&
+        window.navigator.credentials.create &&
+        window.navigator.credentials.get
+      );
       setIsWebAuthnSupported(supported);
     };
     checkSupport();
@@ -121,47 +137,27 @@ export default function LoginPage() {
     setError('');
 
     try {
-      // Try usernameless authentication first
-      const result = await webauthnService.authenticateUsernameless();
+      const result = await signInPasskey();
 
-      if (result.success) {
-        // Tokens are now in httpOnly cookies, just pass the user data
-        await loginWithPasskey(result.user);
-      } else {
-        throw new Error('Authentication failed');
+      // Better Auth may return result directly or in a different format
+      if (result && result.error) {
+        throw new Error(
+          result.error.message || 'Passkey authentication failed',
+        );
       }
+
+      // Show success notification and trigger auth refresh
+      notify.success('Welcome back! You have been signed in successfully.');
+
+      // Force refresh session to update UI
+      window.dispatchEvent(new Event('auth-change'));
     } catch (err) {
-      // If usernameless fails and we have a username, try username-based auth
-      if (formData.username && err.message.includes('usernameless')) {
-        try {
-          const result = await webauthnService.authenticateWithUsername(
-            formData.username.toLowerCase(),
-          );
-          if (result.success) {
-            await loginWithPasskey(result.user);
-          } else {
-            throw new Error('Authentication failed');
-          }
-        } catch (usernameErr) {
-          setError(usernameErr.message || 'Passkey authentication failed');
-        }
-      } else {
-        setError(err.message || 'Passkey authentication failed');
-      }
+      console.error('Passkey login error:', err);
+      setError(err.message || 'Passkey authentication failed');
     } finally {
       setPasskeyLoading(false);
     }
   };
-
-  // Show password change component if required
-  if (passwordChangeRequired) {
-    return (
-      <PasswordOnboarding
-        username={passwordChangeRequired.username}
-        onSuccess={() => window.location.reload()}
-      />
-    );
-  }
 
   return (
     <Container size="xs" style={{ minHeight: '100vh' }}>
@@ -223,8 +219,8 @@ export default function LoginPage() {
 
               <Stack gap="md" key="login-form-fields">
                 <TextInput
-                  label="Username"
-                  placeholder="Enter your username"
+                  label="Email or Username"
+                  placeholder="Enter your email or username"
                   value={formData.username}
                   onChange={(e) =>
                     handleInputChange('username', e.target.value)
@@ -234,6 +230,7 @@ export default function LoginPage() {
                   autoComplete="username"
                   name="username"
                   id="username"
+                  description="You can sign in with either your email address or username"
                 />
 
                 <PasswordInput
