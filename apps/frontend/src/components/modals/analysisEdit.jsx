@@ -1,5 +1,5 @@
 // frontend/src/components/analysis/analysisEdit.jsx
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import PropTypes from 'prop-types';
 import Editor from '@monaco-editor/react';
 import { analysisService } from '../../services/analysisService';
@@ -43,14 +43,19 @@ export default function EditAnalysisModal({
   // FIXED: Use direct object lookup instead of array.find()
   const currentAnalysis = analyses?.[initialAnalysis.name] || initialAnalysis;
 
-  // Update analysis name when it changes via WebSocket
-  useEffect(() => {
-    if (currentAnalysis.name !== newFileName && !isEditingName) {
-      setNewFileName(currentAnalysis.name);
-    }
-  }, [currentAnalysis.name, isEditingName, newFileName]);
+  // Update analysis name when it changes via WebSocket (derived state)
+  if (currentAnalysis.name !== newFileName && !isEditingName) {
+    setNewFileName(currentAnalysis.name);
+  }
 
-  useEffect(() => {
+  // Load content when analysis name changes (derived state)
+  const [currentAnalysisName, setCurrentAnalysisName] = useState(
+    currentAnalysis.name,
+  );
+
+  if (currentAnalysis.name !== currentAnalysisName) {
+    setCurrentAnalysisName(currentAnalysis.name);
+
     async function loadContent() {
       try {
         setIsLoading(true);
@@ -70,7 +75,7 @@ export default function EditAnalysisModal({
     if (currentAnalysis.name) {
       loadContent();
     }
-  }, [currentAnalysis.name]);
+  }
 
   const handleEditorChange = (value) => {
     setContent(value);

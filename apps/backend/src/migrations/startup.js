@@ -84,18 +84,20 @@ export async function runMigrations() {
       }
 
       // Check if member table has permissions column, add if missing
-      console.log('Checking member table schema...');
-      const memberTableInfo = db.prepare('PRAGMA table_info(member)').all();
-      const hasPermissionsColumn = memberTableInfo.some(
+      console.log('Checking teamMember table schema...');
+      const teamMemberTableInfo = db
+        .prepare('PRAGMA table_info(teamMember)')
+        .all();
+      const hasPermissionsColumn = teamMemberTableInfo.some(
         (column) => column.name === 'permissions',
       );
 
       if (!hasPermissionsColumn) {
         console.log('Adding permissions column to member table...');
         db.prepare(
-          "ALTER TABLE member ADD COLUMN permissions TEXT DEFAULT '[]'",
+          "ALTER TABLE teamMember ADD COLUMN permissions TEXT DEFAULT '[]'",
         ).run();
-        console.log('✓ Permissions column added to member table');
+        console.log('✓ Permissions column added to teamMember table');
       } else {
         return;
       }
@@ -269,8 +271,6 @@ export async function createAdminUserIfNeeded() {
               )
               .get(orgId, 'Uncategorized');
 
-            let teamId = existingTeam?.id;
-
             if (!existingTeam) {
               const teamUuid = crypto.randomUUID();
               db3
@@ -286,7 +286,6 @@ export async function createAdminUserIfNeeded() {
                   0,
                   1,
                 );
-              teamId = teamUuid;
               console.log('✓ Uncategorized team created');
             }
 
@@ -300,14 +299,13 @@ export async function createAdminUserIfNeeded() {
             if (!existingMember) {
               db3
                 .prepare(
-                  'INSERT INTO member (id, organizationId, userId, role, teamId, createdAt) VALUES (?, ?, ?, ?, ?, ?)',
+                  'INSERT INTO member (id, organizationId, userId, role, createdAt) VALUES (?, ?, ?, ?, ?)',
                 )
                 .run(
                   crypto.randomUUID(),
                   orgId,
                   result.user.id,
                   'owner',
-                  teamId,
                   new Date().toISOString(),
                 );
               console.log(

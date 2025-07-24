@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Modal,
   Stack,
@@ -73,11 +73,18 @@ export default function UserSessionsModal({ opened, onClose, user }) {
     }
   };
 
-  useEffect(() => {
-    if (opened && user) {
-      loadSessions();
-    }
-  }, [opened, user]);
+  // Load sessions when modal opens (derived state)
+  const [hasLoadedSessionData, setHasLoadedSessionData] = useState(false);
+
+  if (opened && user && !hasLoadedSessionData) {
+    setHasLoadedSessionData(true);
+    loadSessions();
+  }
+
+  // Reset loaded flag when modal closes or user changes
+  if ((!opened || !user) && hasLoadedSessionData) {
+    setHasLoadedSessionData(false);
+  }
 
   const handleRevokeSession = async (sessionToken) => {
     if (!confirm('Are you sure you want to revoke this session?')) {

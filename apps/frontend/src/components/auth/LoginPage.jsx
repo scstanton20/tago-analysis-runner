@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { useEventListener } from '../../hooks/useEventListener';
+import { useInterval, useTimeout } from '../../hooks/useInterval';
 import {
   TextInput,
   PasswordInput,
@@ -31,49 +33,42 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [error, setError] = useState('');
-  const [isWebAuthnSupported, setIsWebAuthnSupported] = useState(false);
+  // Removed useState - now using derived state with useMemo
   const [showPasswordOnboarding, setShowPasswordOnboarding] = useState(false);
   const [passwordOnboardingUser, setPasswordOnboardingUser] = useState('');
 
   // Handle password manager autofill
-  useEffect(() => {
-    const handleAutofill = () => {
-      // Small delay to allow password managers to fill fields
-      setTimeout(() => {
-        const usernameInput = document.getElementById('username');
-        const passwordInput = document.getElementById('password');
+  const handleAutofill = useCallback(() => {
+    // Small delay to allow password managers to fill fields
+    setTimeout(() => {
+      const usernameInput = document.getElementById('username');
+      const passwordInput = document.getElementById('password');
 
-        if (
-          usernameInput &&
-          usernameInput.value &&
-          usernameInput.value !== formData.username
-        ) {
-          setFormData((prev) => ({ ...prev, username: usernameInput.value }));
-        }
-        if (
-          passwordInput &&
-          passwordInput.value &&
-          passwordInput.value !== formData.password
-        ) {
-          setFormData((prev) => ({ ...prev, password: passwordInput.value }));
-        }
-      }, 100);
-    };
-
-    // Listen for autofill events
-    document.addEventListener('DOMContentLoaded', handleAutofill);
-    window.addEventListener('load', handleAutofill);
-
-    // Also check periodically for the first few seconds
-    const interval = setInterval(handleAutofill, 500);
-    setTimeout(() => clearInterval(interval), 3000);
-
-    return () => {
-      document.removeEventListener('DOMContentLoaded', handleAutofill);
-      window.removeEventListener('load', handleAutofill);
-      clearInterval(interval);
-    };
+      if (
+        usernameInput &&
+        usernameInput.value &&
+        usernameInput.value !== formData.username
+      ) {
+        setFormData((prev) => ({ ...prev, username: usernameInput.value }));
+      }
+      if (
+        passwordInput &&
+        passwordInput.value &&
+        passwordInput.value !== formData.password
+      ) {
+        setFormData((prev) => ({ ...prev, password: passwordInput.value }));
+      }
+    }, 100);
   }, [formData.username, formData.password]);
+
+  // Listen for autofill events using custom hooks
+  useEventListener('DOMContentLoaded', handleAutofill, document);
+  useEventListener('load', handleAutofill, window);
+
+  // Check periodically for autofill for first 3 seconds
+  const [stopPolling, setStopPolling] = useState(false);
+  useInterval(handleAutofill, stopPolling ? null : 500, false);
+  useTimeout(() => setStopPolling(true), 3000);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -142,20 +137,15 @@ export default function LoginPage() {
     window.dispatchEvent(new Event('auth-change'));
   };
 
-  // Check WebAuthn support on component mount
-  useEffect(() => {
-    const checkSupport = () => {
-      // Basic WebAuthn support check
-      const supported = !!(
-        window.PublicKeyCredential &&
-        window.navigator.credentials &&
-        window.navigator.credentials.create &&
-        window.navigator.credentials.get
-      );
-      setIsWebAuthnSupported(supported);
-    };
-    checkSupport();
-  }, []);
+  // Check WebAuthn support (pure derived state - no side effects needed)
+  const isWebAuthnSupported = useMemo(() => {
+    return !!(
+      window.PublicKeyCredential &&
+      window.navigator.credentials &&
+      window.navigator.credentials.create &&
+      window.navigator.credentials.get
+    );
+  }, []); // Expensive browser feature detection, properly memoized
 
   const handlePasskeyLogin = async () => {
     setPasskeyLoading(true);

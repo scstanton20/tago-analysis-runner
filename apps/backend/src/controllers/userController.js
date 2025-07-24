@@ -85,7 +85,31 @@ class UserController {
         if (!org) {
           throw new Error('Main organization not found');
         }
-        const organizationId = org.id;
+
+        // Ensure user is a member of the organization before adding to teams
+        const existingOrgMember = db
+          .prepare(
+            'SELECT id FROM member WHERE userId = ? AND organizationId = ?',
+          )
+          .get(userId, org.id);
+
+        if (!existingOrgMember) {
+          console.log(`Adding user ${userId} to organization ${org.id}`);
+          const addMemberResult = await auth.api.addMember({
+            body: {
+              userId,
+              organizationId: org.id,
+              role: 'member',
+            },
+          });
+
+          if (addMemberResult.error) {
+            throw new Error(
+              `Failed to add user to organization: ${addMemberResult.error.message}`,
+            );
+          }
+          console.log(`✓ Added user ${userId} to organization`);
+        }
 
         // Process each team assignment using database operations
         for (const assignment of teamAssignments) {
@@ -99,7 +123,9 @@ class UserController {
           try {
             // Check if user is already a member of this team
             const existingMember = db
-              .prepare('SELECT * FROM member WHERE userId = ? AND teamId = ?')
+              .prepare(
+                'SELECT * FROM teamMember WHERE userId = ? AND teamId = ?',
+              )
               .get(userId, teamId);
 
             if (existingMember) {
@@ -111,7 +137,7 @@ class UserController {
               );
 
               db.prepare(
-                'UPDATE member SET permissions = ? WHERE userId = ? AND teamId = ?',
+                'UPDATE teamMember SET permissions = ? WHERE userId = ? AND teamId = ?',
               ).run(permissionsJson, userId, teamId);
 
               results.push({
@@ -132,13 +158,11 @@ class UserController {
               );
 
               db.prepare(
-                'INSERT INTO member (id, userId, organizationId, teamId, role, permissions, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                'INSERT INTO teamMember (id, userId, teamId, permissions, createdAt) VALUES (?, ?, ?, ?, ?)',
               ).run(
                 uuidv4(),
                 userId,
-                organizationId,
                 teamId,
-                'member',
                 permissionsJson,
                 new Date().toISOString(),
               );
@@ -216,8 +240,8 @@ class UserController {
         const memberships = db
           .prepare(
             `
-            SELECT t.id, t.name, m.role, m.permissions
-            FROM member m
+            SELECT t.id, t.name, m.permissions
+            FROM teamMember m
             JOIN team t ON m.teamId = t.id
             WHERE m.userId = ?
           `,
@@ -234,7 +258,6 @@ class UserController {
             teams: memberships.map((membership) => ({
               id: membership.id,
               name: membership.name,
-              role: membership.role || 'member',
               permissions: membership.permissions
                 ? JSON.parse(membership.permissions)
                 : [],
@@ -274,7 +297,7 @@ class UserController {
 
       try {
         const currentMemberships = db
-          .prepare('SELECT teamId FROM member WHERE userId = ?')
+          .prepare('SELECT teamId FROM teamMember WHERE userId = ?')
           .all(userId);
         const currentTeamIds = currentMemberships.map((m) => m.teamId);
 
@@ -292,14 +315,37 @@ class UserController {
         if (!org) {
           throw new Error('Main organization not found');
         }
-        const organizationId = org.id;
+
+        // Ensure user is a member of the organization before updating teams
+        const existingOrgMember = db
+          .prepare(
+            'SELECT id FROM member WHERE userId = ? AND organizationId = ?',
+          )
+          .get(userId, org.id);
+
+        if (!existingOrgMember) {
+          console.log(`Adding user ${userId} to organization ${org.id}`);
+          const addMemberResult = await auth.api.addMember({
+            body: {
+              userId,
+              organizationId: org.id,
+              role: 'member',
+            },
+          });
+
+          if (addMemberResult.error) {
+            throw new Error(
+              `Failed to add user to organization: ${addMemberResult.error.message}`,
+            );
+          }
+          console.log(`✓ Added user ${userId} to organization`);
+        }
 
         // Remove user from teams they're no longer assigned to
         for (const teamId of teamsToRemove) {
-          db.prepare('DELETE FROM member WHERE userId = ? AND teamId = ?').run(
-            userId,
-            teamId,
-          );
+          db.prepare(
+            'DELETE FROM teamMember WHERE userId = ? AND teamId = ?',
+          ).run(userId, teamId);
           console.log(`✓ Removed user ${userId} from team ${teamId}`);
         }
 
@@ -329,13 +375,11 @@ class UserController {
               );
 
               db.prepare(
-                'INSERT INTO member (id, userId, organizationId, teamId, role, permissions, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                'INSERT INTO teamMember (id, userId, teamId, permissions, createdAt) VALUES (?, ?, ?, ?, ?)',
               ).run(
                 uuidv4(),
                 userId,
-                organizationId,
                 teamId,
-                'member',
                 permissionsJson,
                 new Date().toISOString(),
               );
@@ -350,7 +394,7 @@ class UserController {
               );
 
               db.prepare(
-                'UPDATE member SET permissions = ? WHERE userId = ? AND teamId = ?',
+                'UPDATE teamMember SET permissions = ? WHERE userId = ? AND teamId = ?',
               ).run(permissionsJson, userId, teamId);
 
               console.log(
@@ -398,21 +442,34 @@ class UserController {
 
     try {
       // Find all foreign key references
-      const memberships = cleanupDb
-        .prepare('SELECT * FROM member WHERE userId = ?')
+      const teamMemberships = cleanupDb
+        .prepare('SELECT * FROM teamMember WHERE userId = ?')
         .all(userId);
       const sessions = cleanupDb
         .prepare('SELECT * FROM session WHERE userId = ?')
         .all(userId);
 
       console.log(
-        `Found ${memberships.length} memberships, ${sessions.length} sessions to clean up`,
+        `Found ${teamMemberships.length} team memberships, ${sessions.length} sessions to clean up`,
       );
 
+      // Remove team memberships first (foreign key constraint)
+      if (teamMemberships.length > 0) {
+        cleanupDb
+          .prepare('DELETE FROM teamMember WHERE userId = ?')
+          .run(userId);
+        console.log(`✓ Removed ${teamMemberships.length} team memberships`);
+      }
+
       // Remove organization memberships
-      if (memberships.length > 0) {
+      const orgMemberships = cleanupDb
+        .prepare('SELECT * FROM member WHERE userId = ?')
+        .all(userId);
+      if (orgMemberships.length > 0) {
         cleanupDb.prepare('DELETE FROM member WHERE userId = ?').run(userId);
-        console.log(`✓ Removed ${memberships.length} organization memberships`);
+        console.log(
+          `✓ Removed ${orgMemberships.length} organization memberships`,
+        );
       }
 
       // Remove sessions
@@ -448,7 +505,8 @@ class UserController {
       return {
         success: true,
         cleanedUp: {
-          memberships: memberships.length,
+          teamMemberships: teamMemberships.length,
+          orgMemberships: orgMemberships.length,
           sessions: sessions.length,
         },
       };

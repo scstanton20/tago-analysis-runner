@@ -1,6 +1,7 @@
 // frontend/src/components/analysis/analysisLogs.jsx
 import PropTypes from 'prop-types';
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
+import { useMountedRef } from '../../hooks/useMountedRef';
 import { analysisService } from '../../services/analysisService';
 import {
   Paper,
@@ -30,7 +31,7 @@ const AnalysisLogs = ({ analysis }) => {
   const hasLoadedInitial = useRef(false);
   const lastScrollTop = useRef(0);
   const shouldAutoScroll = useRef(true);
-  const isMountedRef = useRef(true);
+  const isMountedRef = useMountedRef();
 
   // Memoize websocketLogs to prevent unnecessary re-renders
   const websocketLogs = useMemo(() => analysis.logs || [], [analysis.logs]);
@@ -39,24 +40,22 @@ const AnalysisLogs = ({ analysis }) => {
     [analysis.totalLogCount, websocketLogs.length],
   );
 
-  // Memoized auto-scroll effect to prevent excessive re-renders
-  useEffect(() => {
-    if (!isMountedRef.current) return;
+  // Auto-scroll when new logs arrive (conditional side effect)
+  const shouldPerformAutoScroll =
+    shouldAutoScroll.current &&
+    scrollRef.current &&
+    websocketLogs.length > 0 &&
+    isMountedRef.current;
 
-    if (
-      shouldAutoScroll.current &&
-      scrollRef.current &&
-      websocketLogs.length > 0
-    ) {
-      const element = scrollRef.current;
-      // Use requestAnimationFrame for better performance
-      requestAnimationFrame(() => {
-        if (element && isMountedRef.current) {
-          element.scrollTop = element.scrollHeight;
-        }
-      });
-    }
-  }, [websocketLogs.length]);
+  if (shouldPerformAutoScroll) {
+    const element = scrollRef.current;
+    // Use requestAnimationFrame for better performance
+    requestAnimationFrame(() => {
+      if (element && isMountedRef.current) {
+        element.scrollTop = element.scrollHeight;
+      }
+    });
+  }
 
   const loadInitialLogs = useCallback(async () => {
     if (hasLoadedInitial.current || !isMountedRef.current) return;
@@ -161,8 +160,11 @@ const AnalysisLogs = ({ analysis }) => {
     }
   }, [hasMore, loadMoreLogs]);
 
-  // Load initial logs on mount or analysis change
-  useEffect(() => {
+  // Reset and load logs when analysis changes
+  const [currentAnalysisName, setCurrentAnalysisName] = useState(analysis.name);
+
+  if (analysis.name !== currentAnalysisName) {
+    setCurrentAnalysisName(analysis.name);
     hasLoadedInitial.current = false;
     setInitialLogs([]);
     setAdditionalLogs([]);
@@ -170,29 +172,33 @@ const AnalysisLogs = ({ analysis }) => {
     setHasMore(false);
     shouldAutoScroll.current = true;
     loadInitialLogs();
-  }, [analysis.name, loadInitialLogs]);
+  }
 
-  // Reset when logs are cleared
-  useEffect(() => {
-    if (!isMountedRef.current) return;
+  // Reset state when logs are cleared
+  const [previousLogCount, setPreviousLogCount] = useState(
+    websocketLogs.length,
+  );
 
-    if (websocketLogs.length === 0 && hasLoadedInitial.current) {
-      console.log('Logs cleared, resetting state');
-      setInitialLogs([]);
-      setAdditionalLogs([]);
-      setPage(1);
-      setHasMore(false);
-      shouldAutoScroll.current = true;
-    }
-  }, [websocketLogs.length]);
+  if (
+    isMountedRef.current &&
+    websocketLogs.length === 0 &&
+    previousLogCount > 0 &&
+    hasLoadedInitial.current
+  ) {
+    console.log('Logs cleared, resetting state');
+    setInitialLogs([]);
+    setAdditionalLogs([]);
+    setPage(1);
+    setHasMore(false);
+    shouldAutoScroll.current = true;
+  }
 
-  // Cleanup on unmount
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
+  // Update previous count for next render
+  if (websocketLogs.length !== previousLogCount) {
+    setPreviousLogCount(websocketLogs.length);
+  }
+
+  // Cleanup handled by useMountedRef hook
 
   // Memoize combined logs to prevent unnecessary recalculations
   const allLogs = useCallback(() => {

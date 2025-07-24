@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
+import { useEventListener } from '../../hooks/useEventListener';
+import { useFormSync } from '../../hooks/useFormSync';
 import PropTypes from 'prop-types';
 import {
   Modal,
@@ -99,42 +101,40 @@ export default function ProfileModal({ opened, onClose }) {
     },
   });
 
-  // Update form when user changes
-  useEffect(() => {
-    if (user) {
-      profileForm.setValues({
-        name: user.name || '',
-        email: user.email || '',
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  // Update form when user changes (using custom hook)
+  useFormSync(
+    profileForm,
+    {
+      name: user?.name || '',
+      email: user?.email || '',
+    },
+    [user?.name, user?.email],
+  );
 
-  // Load WebAuthn support and passkeys on modal open
-  useEffect(() => {
-    if (opened) {
-      checkWebAuthnSupport();
-      loadPasskeys();
-    }
-  }, [opened]);
+  // Load WebAuthn support and passkeys when modal opens
+  const [hasLoadedModalData, setHasLoadedModalData] = useState(false);
+
+  if (opened && !hasLoadedModalData) {
+    setHasLoadedModalData(true);
+    checkWebAuthnSupport();
+    loadPasskeys();
+  }
+
+  // Reset loaded flag when modal closes
+  if (!opened && hasLoadedModalData) {
+    setHasLoadedModalData(false);
+  }
 
   // Listen for password change logout event
-  useEffect(() => {
-    const handlePasswordChangeLogout = (event) => {
+  const handlePasswordChangeLogout = useCallback(
+    (event) => {
       notify.info(event.detail.message);
       onClose(); // Close the modal since user will be logged out
-    };
+    },
+    [notify, onClose],
+  );
 
-    window.addEventListener(
-      'password-changed-logout',
-      handlePasswordChangeLogout,
-    );
-    return () =>
-      window.removeEventListener(
-        'password-changed-logout',
-        handlePasswordChangeLogout,
-      );
-  }, [notify, onClose]);
+  useEventListener('password-changed-logout', handlePasswordChangeLogout);
 
   const checkWebAuthnSupport = async () => {
     // WebAuthn support check - Better Auth handles this internally

@@ -1,5 +1,5 @@
 // frontend/src/components/analysis/uploadAnalysis.jsx
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { analysisService } from '../../services/analysisService';
 import { useSSE } from '../../contexts/sseContext/index';
 import { useNotifications } from '../../hooks/useNotifications.jsx';
@@ -88,8 +88,8 @@ export default function AnalysisCreator({ targetTeam = null, onClose = null }) {
     return uploadableTeams.length > 0 ? uploadableTeams[0].id : null;
   };
 
-  // Set initial team selection when component mounts or permissions change
-  useEffect(() => {
+  // Set initial team selection when component mounts or permissions change (derived effect)
+  useMemo(() => {
     if (!selectedTeamId) {
       const initialTeam = getInitialTeam();
       if (initialTeam) {

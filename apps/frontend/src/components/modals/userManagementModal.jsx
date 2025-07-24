@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   Modal,
   Stack,
@@ -38,7 +38,8 @@ import {
   IconCheck,
 } from '@tabler/icons-react';
 import { useAuth } from '../../hooks/useAuth';
-import { admin, organization } from '../../lib/auth';
+import { usePermissions } from '../../hooks/usePermissions';
+import { admin, organization, authClient } from '../../lib/auth';
 import { useNotifications } from '../../hooks/useNotifications.jsx';
 import { userService } from '../../services/userService';
 import UserSessionsModal from './userSessionsModal';
@@ -69,12 +70,9 @@ function generateSecurePassword() {
 }
 
 export default function UserManagementModal({ opened, onClose }) {
-  const {
-    user: currentUser,
-    isAdmin,
-    organizationId,
-    refreshUserData,
-  } = useAuth();
+  const { user: currentUser, isAdmin } = useAuth();
+
+  const { organizationId, refreshUserData } = usePermissions();
   const notify = useNotifications();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -220,25 +218,33 @@ export default function UserManagementModal({ opened, onClose }) {
     }
   }, []);
 
-  // Local validation functions (like analysis component)
+  // Async username validation using Better Auth
   const validateUsername = useCallback(
-    (username) => {
+    async (username) => {
       if (!username) return null; // Username is optional
       if (username.length < 3) return 'Username must be at least 3 characters';
       if (!/^[a-zA-Z0-9_-]+$/.test(username))
         return 'Username can only contain letters, numbers, hyphens, and underscores';
 
-      // Check against existing usernames (case-insensitive, like analysis component)
-      if (
-        !editingUser &&
-        existingUserData.usernames.includes(username.toLowerCase())
-      ) {
-        return 'This username is already taken';
-      }
+      // Skip availability check when editing existing user
+      if (editingUser) return null;
 
-      return null;
+      try {
+        const response = await authClient.isUsernameAvailable({
+          username: username,
+        });
+
+        if (response.data?.available) {
+          return null; // Username is available
+        } else {
+          return 'This username is already taken';
+        }
+      } catch (error) {
+        console.error('Error checking username availability:', error);
+        return 'Unable to verify username availability';
+      }
     },
-    [editingUser, existingUserData.usernames],
+    [editingUser],
   );
 
   const validateEmail = useCallback(
@@ -259,12 +265,11 @@ export default function UserManagementModal({ opened, onClose }) {
     [editingUser, existingUserData.emails],
   );
 
-  // Simple input change handlers (no debouncing needed for local validation)
+  // Username validation using Better Auth API
   const handleUsernameChange = useCallback(
-    (value) => {
+    async (value) => {
       form.setFieldValue('username', value);
-      // Instant validation with local data
-      const error = validateUsername(value);
+      const error = await validateUsername(value);
       if (error) {
         form.setFieldError('username', error);
       } else {
@@ -337,14 +342,21 @@ export default function UserManagementModal({ opened, onClose }) {
     );
   };
 
-  useEffect(() => {
-    if (opened && isAdmin) {
-      loadUsers();
-      loadTeams();
-      loadActions();
-      setError('');
-    }
-  }, [opened, isAdmin, loadUsers, loadTeams, loadActions]);
+  // Load data when modal opens (derived state)
+  const [hasLoadedModalData, setHasLoadedModalData] = useState(false);
+
+  if (opened && isAdmin && !hasLoadedModalData) {
+    setHasLoadedModalData(true);
+    loadUsers();
+    loadTeams();
+    loadActions();
+    setError('');
+  }
+
+  // Reset loaded flag when modal closes
+  if (!opened && hasLoadedModalData) {
+    setHasLoadedModalData(false);
+  }
 
   const handleSubmit = async (values) => {
     try {

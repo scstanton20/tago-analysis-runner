@@ -1,5 +1,6 @@
 // frontend/src/components/modals/teamManagementModal.jsx
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
+import { useKeyPress } from '../../hooks/useEventListener';
 import {
   DndContext,
   closestCenter,
@@ -100,20 +101,14 @@ export default function TeamManagementModal({ opened, onClose, teams }) {
   const deletingRef = useRef();
 
   // Escape key handler for deleting mode
-  useEffect(() => {
-    const handleEscape = (e) => {
-      if (e.key === 'Escape') {
-        if (deletingId) {
-          setDeletingId(null);
-        }
-      }
-    };
-
+  const handleEscape = useCallback(() => {
     if (deletingId) {
-      document.addEventListener('keydown', handleEscape);
-      return () => document.removeEventListener('keydown', handleEscape);
+      setDeletingId(null);
     }
   }, [deletingId]);
+
+  // Only listen for escape when in deleting mode
+  useKeyPress('Escape', handleEscape);
 
   // Convert teams object to sorted array for display
   const teamsArray = useMemo(

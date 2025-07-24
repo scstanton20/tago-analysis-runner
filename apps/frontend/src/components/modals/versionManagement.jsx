@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import {
   Modal,
@@ -55,11 +55,26 @@ export default function VersionManagementModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [analysis.name]);
 
-  useEffect(() => {
-    if (isOpen && analysis?.name) {
-      loadVersions();
-    }
-  }, [isOpen, analysis?.name, loadVersions]);
+  // Load versions when modal opens (derived state)
+  const [hasLoadedVersionData, setHasLoadedVersionData] = useState(false);
+  const [currentAnalysisName, setCurrentAnalysisName] = useState(
+    analysis?.name,
+  );
+
+  if (
+    isOpen &&
+    analysis?.name &&
+    (!hasLoadedVersionData || analysis.name !== currentAnalysisName)
+  ) {
+    setHasLoadedVersionData(true);
+    setCurrentAnalysisName(analysis.name);
+    loadVersions();
+  }
+
+  // Reset loaded flag when modal closes
+  if (!isOpen && hasLoadedVersionData) {
+    setHasLoadedVersionData(false);
+  }
 
   const handleRollback = async (version) => {
     if (

@@ -17,7 +17,7 @@ import { useDisclosure } from '@mantine/hooks';
 import { IconSun, IconMoon } from '@tabler/icons-react';
 import { useSSE } from './contexts/sseContext';
 import { SSEProvider } from './contexts/sseContext/provider';
-import { AuthProvider } from './contexts/AuthProvider';
+import { CombinedAuthProvider } from './contexts/CombinedAuthProvider';
 import { useAuth } from './hooks/useAuth';
 import { usePermissions } from './hooks/usePermissions';
 // Import core components directly to avoid context timing issues
@@ -72,8 +72,8 @@ function AppLoadingOverlay({ message, submessage, error, showRetry }) {
 
 function AppContent() {
   const { analyses, connectionStatus } = useSSE();
-  const { isAdmin, isTeamMember } = useAuth();
-  const { canUploadToAnyTeam } = usePermissions();
+  const { isAdmin } = useAuth();
+  const { canUploadToAnyTeam, isTeamMember } = usePermissions();
 
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
@@ -322,9 +322,9 @@ function AuthenticatedApp() {
 
 export default function App() {
   return (
-    <AuthProvider>
+    <CombinedAuthProvider>
       <AppRouter />
-    </AuthProvider>
+    </CombinedAuthProvider>
   );
 }
 
